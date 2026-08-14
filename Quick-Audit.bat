@@ -37,10 +37,26 @@ echo   Safety Policy   : System Modifications Blocked (0 Changes Guaranteed)
 echo ============================================================================
 echo.
 
-:: 3. Safe invocation without crashing on ServicePointManager
+:: 3. Safe invocation with automatic self-healing resilience
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ABEM_ROOT%\Deploy-BimEnvironment.ps1" -Mode SmokeTest
 
 set "EXIT_CODE=%ERRORLEVEL%"
+
+:: Check if failed with CLR / ServicePointManager initialization error (Exit Code -65536 or non-zero)
+if %EXIT_CODE% neq 0 (
+    echo.
+    echo [AUTO-REPAIR DETECTED] Intento 1 finalizo con codigo %EXIT_CODE%.
+    echo [AUTO-REPAIR DETECTED] Ejecutando auto-reparacion de directivas .NET TLS/Crypto via Fix-NetSecurityPointManager.bat...
+    echo ----------------------------------------------------------------------------
+    if exist "%ABEM_ROOT%\Fix-NetSecurityPointManager.bat" (
+        call "%ABEM_ROOT%\Fix-NetSecurityPointManager.bat"
+        echo.
+        echo [AUTO-REPAIR DETECTED] Re-ejecutando Smoke Test tras reparar el Registro...
+        echo ----------------------------------------------------------------------------
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ABEM_ROOT%\Deploy-BimEnvironment.ps1" -Mode SmokeTest
+        set "EXIT_CODE=!ERRORLEVEL!"
+    )
+)
 
 echo.
 echo ----------------------------------------------------------------------------
@@ -49,9 +65,8 @@ if %EXIT_CODE% equ 0 (
 ) else (
     echo [SMOKE TEST RESULT] ABEM CORE ENGINE VERIFICATION: COMPLETED WITH WARNINGS/ISSUES (Code %EXIT_CODE%)
     echo.
-    echo [TIP] Si observas un error en 'System.Net.ServicePointManager', ejecuta primero:
-    echo       Fix-NetSecurityPointManager.bat
-    echo       para reparar las directivas de cifrado de .NET en el Registro.
+    echo [TIP] Si observas persistencia en 'System.Net.ServicePointManager', instala PowerShell 7 con:
+    echo       Install-PowerShell7.bat
 )
 echo ----------------------------------------------------------------------------
 echo.

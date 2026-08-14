@@ -1,4 +1,4 @@
-export type ExecutionMode = 'SMOKE_TEST' | 'AUDIT' | 'PLAN' | 'REPAIR' | 'DEPLOY' | 'VALIDATE';
+export type ExecutionMode = 'SMOKE_TEST' | 'AUDIT' | 'PLAN' | 'REPAIR' | 'DEPLOY' | 'VALIDATE' | 'WIN11_PREP';
 
 export type ComponentStatus = 'ok' | 'warning' | 'error' | 'missing' | 'unsupported';
 

@@ -297,6 +297,20 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
           <Play className="w-3.5 h-3.5 text-purple-600" />
           <span>[5] VALIDATE</span>
         </button>
+
+        {/* Windows 11 Preparation Pipeline Simulation */}
+        <button
+          onClick={() => handleRunMode('WIN11_PREP')}
+          disabled={isRunning}
+          className={`px-3 py-1.5 rounded-lg font-mono font-semibold transition-all flex items-center gap-1.5 shadow-xs ${
+            currentMode === 'WIN11_PREP' && isRunning
+              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-sm'
+              : 'bg-blue-50/80 hover:bg-blue-100/80 text-blue-900 border border-blue-300'
+          }`}
+        >
+          <FileCode2 className="w-3.5 h-3.5 text-blue-600" />
+          <span>[6] WIN11 PREP PIPELINE</span>
+        </button>
       </div>
 
       {/* Terminal Output Area */}
@@ -456,6 +470,30 @@ Log   : C:\\BIM\\AutodeskEnvironment\\logs\\ABEM_SmokeTest_20260814.log
       { level: 'SUCCESS', message: `pyRevit 4.8.16 attached.` },
       { level: 'INFO', message: `Deploying Python 3.11 & Git for Windows...` },
       { level: 'SUCCESS', message: `Developer toolchain configured in system PATH.` }
+    ];
+  } else if (mode === 'WIN11_PREP') {
+    return [
+      { level: 'STAGE', message: `=== 07_WindowsUpdatePreparationManager.ps1: Initializing Pre-Flight Pipeline ===` },
+      { level: 'INFO', message: `Host Node: WORKSTATION-BIM-01 | Current OS: ${profile.osName} (${profile.osBuild})` },
+      { level: 'INFO', message: `Workspace Root: C:\\BIM\\REPOSITORIOS\\EntornoDesk | Staging: C:\\BIM\\Staging_Upgrade` },
+      { level: 'INFO', message: `[STEP 1/6] STEP_01_EDGE_DOWNLOAD_UNLOCK: Configuring HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge...` },
+      { level: 'SUCCESS', message: `Edge DownloadRestrictions=0 set (Unrestricted downloads enabled).` },
+      { level: 'INFO', message: `[STEP 2/6] STEP_02_DEFENDER_QUIESCENCE: Setting temporary staging exclusions...` },
+      { level: 'SUCCESS', message: `Defender exclusions registered for C:\\BIM\\Staging_Upgrade and setup.exe.` },
+      { level: 'INFO', message: `[STEP 3/6] STEP_03_DISM_SFC_HEALTH: Running DISM /Online /Cleanup-Image /CheckHealth...` },
+      { level: 'SUCCESS', message: `DISM CheckHealth completed (ExitCode 0 - Component store repairable/healthy).` },
+      { level: 'INFO', message: `Running SFC.exe /scannow (System File Checker)...` },
+      { level: 'SUCCESS', message: `Windows Resource Protection verified system file integrity.` },
+      { level: 'INFO', message: `[STEP 4/6] STEP_04_ROOT_CERT_SYNC: Checking Microsoft Root Certificate Authority Store...` },
+      { level: 'SUCCESS', message: `Microsoft PCA Root Certificates verified & AutoUpdate enabled.` },
+      { level: 'INFO', message: `[STEP 5/6] STEP_05_STAGING_MANIFEST: Auditing required installers in C:\\BIM\\Staging_Upgrade...` },
+      { level: 'INFO', message: `  - Windows 11 ISO (24H2/25H2): Verified / Mounted Media Search Active` },
+      { level: 'INFO', message: `  - Microsoft .NET Framework 4.8.1 Runtime: Registered` },
+      { level: 'INFO', message: `  - .NET 8.0 Desktop Runtime (x64): Registered` },
+      { level: 'INFO', message: `[STEP 6/6] STEP_06_POST_UPDATE_SCANNER: WinSxS component store analysis...` },
+      { level: 'SUCCESS', message: `WinSxS Component Store healthy. Windows Update Service (wuauserv) verified.` },
+      { level: 'SUCCESS', message: `Consolidated JSON Telemetry written to: .\\reports\\ABEM_WinUpdatePrep_20260814.json` },
+      { level: 'BANNER', message: `\n====================================================================\n  ABEM / AKS WORKSPACE - PREPARATION PIPELINE COMPLETED\n  VERDICT: READY_FOR_INPLACE_UPGRADE (Zero Data Loss Guaranteed)\n====================================================================\n` }
     ];
   } else {
     // VALIDATE
