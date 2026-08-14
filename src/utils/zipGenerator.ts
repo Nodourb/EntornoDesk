@@ -1,15 +1,20 @@
 import JSZip from 'jszip';
 import { REPOSITORY_SCRIPTS } from '../data/scriptsData';
+import { injectSecurityProtocolFix } from './systemCompatibility';
 
 export async function generateAndDownloadZip(customRevitVersion: string = '2026') {
   const zip = new JSZip();
 
   REPOSITORY_SCRIPTS.forEach(file => {
-    // If it's a template or script that refers to target version, we can keep the dynamic version or original
-    zip.file(file.path, file.content);
+    // Inject legacy TLS 1.2 / TLS 1.3 security protocol fix into all generated PowerShell scripts (.ps1)
+    const finalContent = file.language === 'powershell' || file.path.endsWith('.ps1')
+      ? injectSecurityProtocolFix(file.content, file.path)
+      : file.content;
+
+    zip.file(file.path, finalContent);
   });
 
-  // Add dummy empty directories to complete repository structure
+  // Add empty directories to complete repository structure
   zip.folder('logs');
   zip.folder('reports');
   zip.folder('installers');
