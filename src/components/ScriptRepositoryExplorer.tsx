@@ -26,7 +26,7 @@ export const ScriptRepositoryExplorer: React.FC<ScriptRepositoryExplorerProps> =
   onDownloadZip,
   targetRevitVersion
 }) => {
-  const [selectedPath, setSelectedPath] = useState<string>('bootstrap.ps1');
+  const [selectedPath, setSelectedPath] = useState<string>('Quick-Audit.bat');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [copied, setCopied] = useState(false);
 

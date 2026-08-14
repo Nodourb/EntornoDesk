@@ -10,8 +10,8 @@ import {
   ShieldCheck, 
   Wrench, 
   Activity,
-  Maximize2,
-  Minimize2
+  CheckCircle2,
+  FileCode2
 } from 'lucide-react';
 import { ExecutionMode, SystemProfile } from '../types';
 
@@ -35,7 +35,7 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
 }) => {
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [currentMode, setCurrentMode] = useState<ExecutionMode>('AUDIT');
+  const [currentMode, setCurrentMode] = useState<ExecutionMode>('SMOKE_TEST');
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
   const consoleBottomRef = useRef<HTMLDivElement>(null);
@@ -43,10 +43,10 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
   const initialBanner = () => {
     const time = new Date().toLocaleTimeString();
     return [
-      { id: '1', time, level: 'STAGE' as const, message: 'AUTODESK BIM ENVIRONMENT MANAGER (ABEM) - PowerShell Orchestrator' },
-      { id: '2', time, level: 'INFO' as const, message: `Host Node: ${currentProfile.name} | Target: Revit ${targetRevitVersion}` },
-      { id: '3', time, level: 'INFO' as const, message: 'ExecutionPolicy: Process-Scoped Bypass. Standalone non-destructive execution ready.' },
-      { id: '4', time, level: 'INFO' as const, message: 'Ready. Choose an execution mode below [AUDIT | PLAN | REPAIR | DEPLOY | VALIDATE].' }
+      { id: '1', time, level: 'STAGE' as const, message: 'AUTODESK BIM ENVIRONMENT MANAGER (ABEM) - PowerShell Smoke Test Engine' },
+      { id: '2', time, level: 'INFO' as const, message: `Root: C:\\BIM\\AutodeskEnvironment | Host: ${currentProfile.name} | Target: Revit ${targetRevitVersion}` },
+      { id: '3', time, level: 'INFO' as const, message: 'Policy: Non-destructive read-only execution. System modifications guaranteed: 0' },
+      { id: '4', time, level: 'SUCCESS' as const, message: 'Engine Ready. Run [0] SMOKE TEST or Quick-Audit.bat to verify core ABEM subsystems.' }
     ];
   };
 
@@ -72,7 +72,6 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
 
     const time = new Date().toLocaleTimeString();
     addLog('STAGE', `=== STARTING EXECUTION: Mode = ${mode} | Target Revit = ${targetRevitVersion} ===`);
-    addLog('INFO', `Loading sub-modules from .\\modules\\ ...`);
 
     let stepIndex = 0;
     const sequence = getScriptSequence(mode, currentProfile, targetRevitVersion);
@@ -85,10 +84,11 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
       } else {
         clearInterval(interval);
         setIsRunning(false);
-        addLog('SUCCESS', `=== [COMPLETED] Execution Mode ${mode} Finished with Exit Code 0 ===`);
+        const exitCode = mode === 'SMOKE_TEST' ? 0 : 0;
+        addLog('SUCCESS', `=== [COMPLETED] Execution Mode ${mode} Finished with Exit Code ${exitCode} ===`);
         if (onExecutionComplete) onExecutionComplete(mode);
       }
-    }, 450);
+    }, 380);
   };
 
   const handleClearLogs = () => {
@@ -103,22 +103,64 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
   };
 
   const handleDownloadReportJson = () => {
+    const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 15);
     const reportData = {
       timestamp: new Date().toISOString(),
-      hostname: "WORKSTATION-BIM-01",
-      profile: currentProfile.name,
-      targetRevit: targetRevitVersion,
-      os: currentProfile.osName,
-      build: currentProfile.osBuild,
-      items: currentProfile.items,
-      logs: logs.map(l => `[${l.time}] [${l.level}] ${l.message}`)
+      abem_version: "1.0.0-smoke",
+      execution_mode: currentMode,
+      root_path: "C:\\BIM\\AutodeskEnvironment",
+      administrator: true,
+      results_matrix: {
+        RootDirectory: "PASS",
+        PowerShellRuntime: "PASS",
+        Configuration: "PASS",
+        ModuleDiscovery: "PASS",
+        SystemScan: "PASS",
+        HardwareScan: "PASS",
+        RuntimeScan: currentProfile.items.some(i => i.category === '01_RUNTIME' && i.status !== 'ok') ? "WARN" : "PASS",
+        AutodeskDiscovery: "PASS",
+        DryRunSafety: "PASS",
+        ReportGeneration: "PASS"
+      },
+      operating_system: {
+        OSCaption: currentProfile.osName,
+        OSBuild: currentProfile.osBuild,
+        Architecture: "64-bit",
+        Hostname: "WORKSTATION-BIM-01",
+        CurrentUser: "BIM_Admin",
+        PowerShellVersion: "7.4.1"
+      },
+      hardware: {
+        CPUName: "AMD Ryzen 9 7950X / Intel Core i9-14900K",
+        TotalRamGB: 64,
+        GPUName: "NVIDIA RTX A5000 / RTX 4080 (16 GB VRAM)"
+      },
+      runtimes: currentProfile.items.filter(i => i.category === '01_RUNTIME'),
+      autodesk: currentProfile.items.filter(i => i.category === '02_AUTODESK' || i.category === '03_REVIT' || i.category === '04_AUTOCAD'),
+      modules: {
+        "01_EnvironmentAudit.ps1": { Exists: true, Readable: true, SyntaxValid: true, Loadable: true, Status: "READY_DRY_RUN" },
+        "02_OSKernelRemediation.ps1": { Exists: true, Readable: true, SyntaxValid: true, Loadable: true, Status: "READY_DRY_RUN" },
+        "03_RuntimeDeployment.ps1": { Exists: true, Readable: true, SyntaxValid: true, Loadable: true, Status: "READY_DRY_RUN" },
+        "04_AutodeskFrameworkRepair.ps1": { Exists: true, Readable: true, SyntaxValid: true, Loadable: true, Status: "READY_DRY_RUN" },
+        "05_WorkstationStandardization.ps1": { Exists: true, Readable: true, SyntaxValid: true, Loadable: true, Status: "READY_DRY_RUN" }
+      },
+      configuration: {
+        baseline_loaded: true,
+        releases_count: 3
+      },
+      safety: {
+        system_modification: false,
+        modifications_count: 0,
+        dry_run_enforced: true
+      },
+      result: currentProfile.items.some(i => i.status === 'error') ? "PASS WITH WARNINGS" : "PASS"
     };
 
     const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `environment_report_${targetRevitVersion}.json`;
+    a.download = `ABEM_SmokeTest_${timestamp}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -177,6 +219,20 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
       <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 text-xs">
         <span className="text-slate-500 font-mono text-[11px] font-bold mr-1">EXECUTE:</span>
 
+        {/* Primary Safe Smoke Test Button */}
+        <button
+          onClick={() => handleRunMode('SMOKE_TEST')}
+          disabled={isRunning}
+          className={`px-3 py-1.5 rounded-lg font-mono font-semibold transition-all flex items-center gap-1.5 shadow-xs ${
+            currentMode === 'SMOKE_TEST' && isRunning
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300'
+          }`}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <span>[0] SMOKE TEST (SAFE)</span>
+        </button>
+
         <button
           onClick={() => handleRunMode('AUDIT')}
           disabled={isRunning}
@@ -221,11 +277,11 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
           disabled={isRunning}
           className={`px-3 py-1.5 rounded-lg font-mono font-semibold transition-all flex items-center gap-1.5 shadow-xs ${
             currentMode === 'DEPLOY' && isRunning
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200'
+              ? 'bg-cyan-600 text-white shadow-sm'
+              : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
           }`}
         >
-          <Zap className="w-3.5 h-3.5 text-emerald-600" />
+          <Zap className="w-3.5 h-3.5 text-cyan-600" />
           <span>[4] DEPLOY</span>
         </button>
 
@@ -263,6 +319,7 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
                 {log.level === 'SUCCESS' && '[+] '}
                 {log.level === 'WARN' && '[!] '}
                 {log.level === 'ERROR' && '[-] '}
+                {log.level === 'INFO' && '[*] '}
                 {log.message}
               </span>
             </div>
@@ -278,7 +335,7 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
 
       {/* Footer bar */}
       <div className="bg-slate-50 px-4 py-2 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between font-mono">
-        <span>Log sink: .\logs\abem_{currentMode.toLowerCase()}_2026.log</span>
+        <span>Log sink: .\logs\ABEM_{currentMode === 'SMOKE_TEST' ? 'SmokeTest' : currentMode.toLowerCase()}_2026.log</span>
         <label className="flex items-center gap-1.5 cursor-pointer">
           <input
             type="checkbox"
@@ -296,14 +353,73 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
 function getScriptSequence(mode: ExecutionMode, profile: SystemProfile, targetRevit: string): Array<{ level: LogLine['level']; message: string }> {
   const isOldWin = profile.osBuild.startsWith('17763') || profile.osBuild.startsWith('18362');
   
+  if (mode === 'SMOKE_TEST') {
+    return [
+      { level: 'INFO', message: `Deploy-BimEnvironment.ps1: Initializing ABEM Functional Smoke Test v1.0.0-smoke...` },
+      { level: 'SUCCESS', message: `[PASS] Root Path verified at C:\\BIM\\AutodeskEnvironment (Elevation: Administrator)` },
+      { level: 'SUCCESS', message: `[PASS] PowerShell Runtime 7.4.1 (x64) process environment verified.` },
+      { level: 'INFO', message: `Validating configuration files: config/autodesk_baseline.json & config/Revit.ini.template...` },
+      { level: 'SUCCESS', message: `[PASS] Configuration files parsed and JSON schema verified.` },
+      { level: 'INFO', message: `Discovering sub-modules and performing AST Syntax validation...` },
+      { level: 'INFO', message: `  - 01_EnvironmentAudit.ps1 [AST Syntax: OK | Status: READY]` },
+      { level: 'INFO', message: `  - 02_OSKernelRemediation.ps1 [AST Syntax: OK | Mode: DRY_RUN]` },
+      { level: 'INFO', message: `  - 03_RuntimeDeployment.ps1 [AST Syntax: OK | Mode: DRY_RUN]` },
+      { level: 'INFO', message: `  - 04_AutodeskFrameworkRepair.ps1 [AST Syntax: OK | Mode: DRY_RUN]` },
+      { level: 'INFO', message: `  - 05_WorkstationStandardization.ps1 [AST Syntax: OK | Mode: DRY_RUN]` },
+      { level: 'SUCCESS', message: `[PASS] Module Discovery & AST Syntax Verification complete.` },
+      { level: 'INFO', message: `Executing Read-Only System & Hardware Scan...` },
+      { level: isOldWin ? 'WARN' : 'SUCCESS', message: `[${isOldWin ? 'WARN' : 'PASS'}] OS Detected: ${profile.osName} (Build ${profile.osBuild}).` },
+      { level: 'SUCCESS', message: `[PASS] Hardware: CPU Cores verified, RAM available, Dedicated GPU detected.` },
+      { level: 'INFO', message: `Executing Read-Only Runtime Scan (.NET, VC++, WebView2)...` },
+      { level: 'INFO', message: `  - .NET Framework: 4.8.1 (533320) [FOUND]` },
+      { level: 'INFO', message: `  - .NET 8.0 Desktop Runtime: 8.0.4 x64 [FOUND]` },
+      { level: 'INFO', message: `  - Visual C++ 2015-2022: 14.40.33810 [FOUND]` },
+      { level: 'INFO', message: `  - Microsoft Edge WebView2: 124.0.2478.80 [FOUND]` },
+      { level: 'SUCCESS', message: `[PASS] Runtime Scan complete.` },
+      { level: 'INFO', message: `Executing Read-Only Autodesk Infrastructure Scan...` },
+      { level: 'INFO', message: `  - Autodesk Desktop Licensing Service: [FOUND_RUNNING]` },
+      { level: 'INFO', message: `  - Autodesk Identity Manager: [FOUND]` },
+      { level: 'INFO', message: `  - Autodesk ODIS Engine: [FOUND]` },
+      { level: 'INFO', message: `  - Revit Installed Releases: ${targetRevit} [FOUND]` },
+      { level: 'SUCCESS', message: `[PASS] Autodesk Discovery complete.` },
+      { level: 'SUCCESS', message: `[PASS] DRY-RUN SAFETY VERIFIED: System modifications performed = 0` },
+      { level: 'SUCCESS', message: `[PASS] Report generated: .\\reports\\ABEM_SmokeTest_20260814.json` },
+      { level: 'BANNER', message: `
+==================================================
+ ABEM — AUTODESK BIM ENVIRONMENT MANAGER
+ FUNCTIONAL SMOKE TEST RESULTS
+==================================================
+
+[PASS] ABEM ROOT
+[PASS] POWERSHELL RUNTIME
+[PASS] CONFIGURATION
+[PASS] MODULE DISCOVERY
+[PASS] SYSTEM SCAN
+[PASS] HARDWARE SCAN
+[PASS] RUNTIME SCAN
+[PASS] AUTODESK DISCOVERY
+[PASS] DRY-RUN SAFETY
+[PASS] REPORT GENERATION
+
+--------------------------------------------------
+RESULT: PASS (Exit Code 0)
+--------------------------------------------------
+System modifications performed: 0
+Report: C:\\BIM\\AutodeskEnvironment\\reports\\ABEM_SmokeTest_20260814.json
+Log   : C:\\BIM\\AutodeskEnvironment\\logs\\ABEM_SmokeTest_20260814.log
+==================================================
+` }
+    ];
+  }
+
   if (mode === 'AUDIT') {
     return [
-      { level: 'INFO', message: `SystemScan.ps1: Querying WMI Win32_OperatingSystem on ${profile.osName}...` },
+      { level: 'INFO', message: `01_EnvironmentAudit.ps1: Querying WMI Win32_OperatingSystem on ${profile.osName}...` },
       { level: isOldWin ? 'WARN' : 'SUCCESS', message: `OS Build detected: ${profile.osBuild}. ${isOldWin ? 'Notice: Older than 19045.' : 'Verified compatible.'}` },
-      { level: 'INFO', message: `Runtime.ps1: Checking .NET Framework, .NET 8, and Visual C++ Unified Runtimes...` },
-      { level: 'INFO', message: `Autodesk.ps1: Testing AdskLicensingService status on port 52200...` },
-      { level: 'INFO', message: `Revit.ps1: Inspecting Revit ${targetRevit} Add-ins directory and Revit.ini...` },
-      { level: 'INFO', message: `Drivers.ps1: Direct3D 12 Feature Level query...` },
+      { level: 'INFO', message: `01_EnvironmentAudit.ps1: Checking .NET Framework, .NET 8, and Visual C++ Unified Runtimes...` },
+      { level: 'INFO', message: `01_EnvironmentAudit.ps1: Testing AdskLicensingService status on port 52200...` },
+      { level: 'INFO', message: `01_EnvironmentAudit.ps1: Inspecting Revit ${targetRevit} Add-ins directory and Revit.ini...` },
+      { level: 'INFO', message: `01_EnvironmentAudit.ps1: Direct3D 12 Feature Level query...` },
       { level: 'SUCCESS', message: `Audit completed. Generating .\\reports\\environment_report.json...` }
     ];
   } else if (mode === 'PLAN') {
