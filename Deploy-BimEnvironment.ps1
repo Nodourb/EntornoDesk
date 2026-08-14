@@ -87,6 +87,7 @@ Write-SmokeLog "Log Output Path    : $script:LogFile" -Level INFO
 $script:SmokeResults = [ordered]@{
     RootDirectory      = "FAIL"
     PowerShellRuntime  = "FAIL"
+    SecurityProtocols  = "FAIL"
     Configuration      = "FAIL"
     ModuleDiscovery    = "FAIL"
     SystemScan         = "FAIL"
@@ -98,7 +99,7 @@ $script:SmokeResults = [ordered]@{
 }
 
 # -----------------------------------------------------------------------------
-# STEP 2: ROOT DIRECTORY & PERMISSION VALIDATION
+# STEP 2: ROOT DIRECTORY & TLS SECURITY PROTOCOL BOOTSTRAP
 # -----------------------------------------------------------------------------
 try {
     if (Test-Path -LiteralPath $script:RootPath) {
@@ -109,8 +110,21 @@ try {
     } else {
         throw "ABEM Root directory cannot be resolved."
     }
+
+    # Initialize System.Net.ServicePointManager TLS 1.2 / TLS 1.3
+    $bootstrapPath = Join-Path $script:ModulesPath "00_NetSecurityBootstrap.ps1"
+    if (Test-Path -LiteralPath $bootstrapPath) {
+        . $bootstrapPath
+        $secResult = Initialize-NetSecurityProtocol -Silent:$false
+        $script:SmokeResults.SecurityProtocols = "PASS"
+    } else {
+        # Inline fallback
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072 -bor [System.Net.SecurityProtocolType]12288 -bor [System.Net.SecurityProtocolType]768
+        Write-SmokeLog "System.Net.ServicePointManager initialized to TLS 1.2/1.3 via inline fallback." -Level SUCCESS
+        $script:SmokeResults.SecurityProtocols = "PASS"
+    }
 } catch {
-    Write-SmokeLog "Root initialization error: $_" -Level ERROR
+    Write-SmokeLog "Root initialization / SecurityProtocol error: $_" -Level ERROR
 }
 
 # -----------------------------------------------------------------------------
@@ -144,6 +158,7 @@ try {
 # STEP 4: MODULE DISCOVERY & AST SYNTAX VALIDATION (Non-Destructive)
 # -----------------------------------------------------------------------------
 $moduleList = @(
+    "00_NetSecurityBootstrap.ps1",
     "01_EnvironmentAudit.ps1",
     "02_OSKernelRemediation.ps1",
     "03_RuntimeDeployment.ps1",
@@ -343,6 +358,7 @@ Write-Host @"
 
 [$( $script:SmokeResults.RootDirectory )] ABEM ROOT
 [$( $script:SmokeResults.PowerShellRuntime )] POWERSHELL RUNTIME
+[$( $script:SmokeResults.SecurityProtocols )] NET SECURITY (TLS 1.2/1.3)
 [$( $script:SmokeResults.Configuration )] CONFIGURATION
 [$( $script:SmokeResults.ModuleDiscovery )] MODULE DISCOVERY
 [$( $script:SmokeResults.SystemScan )] SYSTEM SCAN

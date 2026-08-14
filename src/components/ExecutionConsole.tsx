@@ -357,16 +357,18 @@ function getScriptSequence(mode: ExecutionMode, profile: SystemProfile, targetRe
     return [
       { level: 'INFO', message: `Deploy-BimEnvironment.ps1: Initializing ABEM Functional Smoke Test v1.0.0-smoke...` },
       { level: 'SUCCESS', message: `[PASS] Root Path verified at C:\\BIM\\AutodeskEnvironment (Elevation: Administrator)` },
-      { level: 'SUCCESS', message: `[PASS] PowerShell Runtime 7.4.1 (x64) process environment verified.` },
+      { level: 'SUCCESS', message: `[PASS] PowerShell Runtime 7.4.1 / 5.1 (x64) process environment verified.` },
+      { level: 'SUCCESS', message: `[PASS] NetSecurityBootstrap: System.Net.ServicePointManager set to [Tls12, Tls13] (StrongCrypto: Active)` },
       { level: 'INFO', message: `Validating configuration files: config/autodesk_baseline.json & config/Revit.ini.template...` },
       { level: 'SUCCESS', message: `[PASS] Configuration files parsed and JSON schema verified.` },
       { level: 'INFO', message: `Discovering sub-modules and performing AST Syntax validation...` },
+      { level: 'INFO', message: `  - 00_NetSecurityBootstrap.ps1 [AST Syntax: OK | Status: READY]` },
       { level: 'INFO', message: `  - 01_EnvironmentAudit.ps1 [AST Syntax: OK | Status: READY]` },
       { level: 'INFO', message: `  - 02_OSKernelRemediation.ps1 [AST Syntax: OK | Mode: DRY_RUN]` },
       { level: 'INFO', message: `  - 03_RuntimeDeployment.ps1 [AST Syntax: OK | Mode: DRY_RUN]` },
       { level: 'INFO', message: `  - 04_AutodeskFrameworkRepair.ps1 [AST Syntax: OK | Mode: DRY_RUN]` },
       { level: 'INFO', message: `  - 05_WorkstationStandardization.ps1 [AST Syntax: OK | Mode: DRY_RUN]` },
-      { level: 'SUCCESS', message: `[PASS] Module Discovery & AST Syntax Verification complete.` },
+      { level: 'SUCCESS', message: `[PASS] Module Discovery & AST Syntax Verification complete (6 modules verified).` },
       { level: 'INFO', message: `Executing Read-Only System & Hardware Scan...` },
       { level: isOldWin ? 'WARN' : 'SUCCESS', message: `[${isOldWin ? 'WARN' : 'PASS'}] OS Detected: ${profile.osName} (Build ${profile.osBuild}).` },
       { level: 'SUCCESS', message: `[PASS] Hardware: CPU Cores verified, RAM available, Dedicated GPU detected.` },
@@ -392,6 +394,7 @@ function getScriptSequence(mode: ExecutionMode, profile: SystemProfile, targetRe
 
 [PASS] ABEM ROOT
 [PASS] POWERSHELL RUNTIME
+[PASS] NET SECURITY (TLS 1.2/1.3)
 [PASS] CONFIGURATION
 [PASS] MODULE DISCOVERY
 [PASS] SYSTEM SCAN

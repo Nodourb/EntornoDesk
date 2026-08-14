@@ -4,6 +4,7 @@
 :: ============================================================================
 :: Purpose: Launches the ABEM Functional Smoke Test in a strictly read-only,
 :: non-destructive execution mode with process-scoped PowerShell execution policy.
+:: Enforces TLS 1.2 / TLS 1.3 ServicePointManager and Strong Crypto pre-initialization.
 :: ============================================================================
 
 setlocal EnableDelayedExpansion
@@ -17,7 +18,7 @@ if "%ABEM_ROOT:~-1%"=="\" set "ABEM_ROOT=%ABEM_ROOT:~0,-1%"
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo [INFO] Requesting Administrator Privileges for System ^& Service Audit...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 3072 -bor 12288; Start-Process -FilePath '%~f0' -Verb RunAs"
     exit /b %errorlevel%
 )
 
@@ -33,8 +34,9 @@ echo   Safety Policy   : System Modifications Blocked (0 Changes Guaranteed)
 echo ============================================================================
 echo.
 
-:: 3. Launch PowerShell Master Orchestrator in SmokeTest Mode
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ABEM_ROOT%\Deploy-BimEnvironment.ps1" -Mode SmokeTest
+:: 3. Pre-initialize TLS 1.2 / TLS 1.3 System.Net.ServicePointManager & Launch Orchestrator
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
+    "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072 -bor [System.Net.SecurityProtocolType]12288 -bor [System.Net.SecurityProtocolType]768; & '%ABEM_ROOT%\Deploy-BimEnvironment.ps1' -Mode SmokeTest"
 
 set "EXIT_CODE=%ERRORLEVEL%"
 

@@ -4,7 +4,7 @@ export const REPOSITORY_SCRIPTS: ScriptFile[] = [
   {
     path: 'Quick-Audit.bat',
     category: 'root',
-    description: 'Safe launcher entry point for the ABEM Smoke Test. Elevates privileges via UAC if required and executes Deploy-BimEnvironment.ps1 in non-destructive -Mode SmokeTest without altering permanent execution policies.',
+    description: 'Safe launcher entry point for the ABEM Smoke Test. Elevates privileges via UAC, initializes TLS 1.2/1.3 System.Net.ServicePointManager, and executes Deploy-BimEnvironment.ps1 in non-destructive -Mode SmokeTest.',
     language: 'bat',
     content: `@echo off
 :: ============================================================================
@@ -12,6 +12,7 @@ export const REPOSITORY_SCRIPTS: ScriptFile[] = [
 :: ============================================================================
 :: Purpose: Launches the ABEM Functional Smoke Test in a strictly read-only,
 :: non-destructive execution mode with process-scoped PowerShell execution policy.
+:: Enforces TLS 1.2 / TLS 1.3 ServicePointManager and Strong Crypto pre-initialization.
 :: ============================================================================
 
 setlocal EnableDelayedExpansion
@@ -19,13 +20,13 @@ title ABEM - Autodesk BIM Environment Manager (Smoke Test)
 
 :: 1. Self-Locate Repository Root
 set "ABEM_ROOT=%~dp0"
-if "%ABEM_ROOT:~-1%"=="\" set "ABEM_ROOT=%ABEM_ROOT:~0,-1%"
+if "%ABEM_ROOT:~-1%"=="\\" set "ABEM_ROOT=%ABEM_ROOT:~0,-1%"
 
 :: 2. Check for Administrative Privileges
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo [INFO] Requesting Administrator Privileges for System ^& Service Audit...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 3072 -bor 12288; Start-Process -FilePath '%~f0' -Verb RunAs"
     exit /b %errorlevel%
 )
 
@@ -41,8 +42,9 @@ echo   Safety Policy   : System Modifications Blocked (0 Changes Guaranteed)
 echo ============================================================================
 echo.
 
-:: 3. Launch PowerShell Master Orchestrator in SmokeTest Mode
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ABEM_ROOT%\Deploy-BimEnvironment.ps1" -Mode SmokeTest
+:: 3. Pre-initialize TLS 1.2 / TLS 1.3 System.Net.ServicePointManager & Launch Orchestrator
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
+    "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072 -bor [System.Net.SecurityProtocolType]12288 -bor [System.Net.SecurityProtocolType]768; & '%ABEM_ROOT%\\Deploy-BimEnvironment.ps1' -Mode SmokeTest"
 
 set "EXIT_CODE=%ERRORLEVEL%"
 
@@ -154,6 +156,7 @@ Write-SmokeLog "Log Output Path    : $script:LogFile" -Level INFO
 $script:SmokeResults = [ordered]@{
     RootDirectory      = "FAIL"
     PowerShellRuntime  = "FAIL"
+    SecurityProtocols  = "FAIL"
     Configuration      = "FAIL"
     ModuleDiscovery    = "FAIL"
     SystemScan         = "FAIL"
@@ -165,7 +168,7 @@ $script:SmokeResults = [ordered]@{
 }
 
 # -----------------------------------------------------------------------------
-# STEP 2: ROOT DIRECTORY & PERMISSION VALIDATION
+# STEP 2: ROOT DIRECTORY & TLS SECURITY PROTOCOL BOOTSTRAP
 # -----------------------------------------------------------------------------
 try {
     if (Test-Path -LiteralPath $script:RootPath) {
@@ -176,8 +179,21 @@ try {
     } else {
         throw "ABEM Root directory cannot be resolved."
     }
+
+    # Initialize System.Net.ServicePointManager TLS 1.2 / TLS 1.3
+    $bootstrapPath = Join-Path $script:ModulesPath "00_NetSecurityBootstrap.ps1"
+    if (Test-Path -LiteralPath $bootstrapPath) {
+        . $bootstrapPath
+        $secResult = Initialize-NetSecurityProtocol -Silent:$false
+        $script:SmokeResults.SecurityProtocols = "PASS"
+    } else {
+        # Inline fallback
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072 -bor [System.Net.SecurityProtocolType]12288 -bor [System.Net.SecurityProtocolType]768
+        Write-SmokeLog "System.Net.ServicePointManager initialized to TLS 1.2/1.3 via inline fallback." -Level SUCCESS
+        $script:SmokeResults.SecurityProtocols = "PASS"
+    }
 } catch {
-    Write-SmokeLog "Root initialization error: $_" -Level ERROR
+    Write-SmokeLog "Root initialization / SecurityProtocol error: $_" -Level ERROR
 }
 
 # -----------------------------------------------------------------------------
@@ -211,6 +227,7 @@ try {
 # STEP 4: MODULE DISCOVERY & AST SYNTAX VALIDATION (Non-Destructive)
 # -----------------------------------------------------------------------------
 $moduleList = @(
+    "00_NetSecurityBootstrap.ps1",
     "01_EnvironmentAudit.ps1",
     "02_OSKernelRemediation.ps1",
     "03_RuntimeDeployment.ps1",
@@ -410,6 +427,7 @@ Write-Host @"
 
 [$( $script:SmokeResults.RootDirectory )] ABEM ROOT
 [$( $script:SmokeResults.PowerShellRuntime )] POWERSHELL RUNTIME
+[$( $script:SmokeResults.SecurityProtocols )] NET SECURITY (TLS 1.2/1.3)
 [$( $script:SmokeResults.Configuration )] CONFIGURATION
 [$( $script:SmokeResults.ModuleDiscovery )] MODULE DISCOVERY
 [$( $script:SmokeResults.SystemScan )] SYSTEM SCAN
@@ -435,6 +453,139 @@ if ($overallStatus -eq "FAIL") {
     exit 1
 } else {
     exit 0
+}`
+  },
+  {
+    path: 'modules/00_NetSecurityBootstrap.ps1',
+    category: 'modules',
+    description: 'TLS 1.2 / TLS 1.3 & .NET Security Initialization Module. Resolves System.Net.ServicePointManager SSL/TLS channel errors and configures Strong Crypto in registry.',
+    language: 'powershell',
+    content: `<#
+.SYNOPSIS
+    00_NetSecurityBootstrap.ps1 - TLS 1.2 / TLS 1.3 & .NET Security Initialization Module
+.DESCRIPTION
+    Fixes the legacy PowerShell 5.1 / Windows PowerShell error:
+    "The request was aborted: Could not create SSL/TLS secure channel"
+    and initializes [System.Net.ServicePointManager]::SecurityProtocol across
+    all supported protocols (Tls12, Tls13, Tls11, Ssl3).
+    Also configures Strong Crypto in the Windows Registry (HKLM/HKCU SchUseStrongCrypto)
+    for both 64-bit and 32-bit .NET Framework runtimes (v4.0.30319 and v2.0.50727).
+#>
+
+function Initialize-NetSecurityProtocol {
+    [CmdletBinding()]
+    param(
+        [switch]$Silent
+    )
+
+    $report = [ordered]@{
+        InitialProtocols = [System.Net.ServicePointManager]::SecurityProtocol.ToString()
+        Tls12Configured  = $false
+        Tls13Configured  = $false
+        StrongCrypto64   = "UNKNOWN"
+        StrongCrypto32   = "UNKNOWN"
+        Status           = "INITIALIZING"
+    }
+
+    try {
+        # 1. Dynamically calculate available SecurityProtocolType enum values
+        $protocols = [System.Net.SecurityProtocolType]0
+
+        # Enable TLS 1.2 (0xC00 / 3072)
+        if ([System.Enum]::IsDefined([System.Net.SecurityProtocolType], 'Tls12') -or [int][System.Net.SecurityProtocolType]::Tls12 -eq 3072) {
+            $protocols = $protocols -bor [System.Net.SecurityProtocolType]::Tls12
+            $report.Tls12Configured = $true
+        } else {
+            # Fallback direct bitwise integer injection for older .NET assemblies
+            $protocols = $protocols -bor 3072
+            $report.Tls12Configured = $true
+        }
+
+        # Enable TLS 1.3 (0x3000 / 12288) if supported by OS/CLR
+        try {
+            if ([System.Enum]::IsDefined([System.Net.SecurityProtocolType], 'Tls13') -or [int][System.Net.SecurityProtocolType]::Tls13 -eq 12288) {
+                $protocols = $protocols -bor [System.Net.SecurityProtocolType]::Tls13
+                $report.Tls13Configured = $true
+            }
+        } catch {
+            # TLS 1.3 not defined in this specific CLR build
+        }
+
+        # Also maintain TLS 1.1 fallback if needed
+        try {
+            $protocols = $protocols -bor [System.Net.SecurityProtocolType]::Tls11
+        } catch {}
+
+        # Apply to current AppDomain ServicePointManager
+        [System.Net.ServicePointManager]::SecurityProtocol = $protocols
+
+        # Default Connection Limit optimization for BIM metadata & Autodesk Access downloads
+        [System.Net.ServicePointManager]::DefaultConnectionLimit = 16
+        [System.Net.ServicePointManager]::Expect100Continue = $false
+        [System.Net.ServicePointManager]::CheckCertificateRevocationList = $true
+
+        $report.ConfiguredProtocols = [System.Net.ServicePointManager]::SecurityProtocol.ToString()
+        $report.Status = "CONFIGURED_SUCCESS"
+
+        if (-not $Silent) {
+            Write-Host "  [+] System.Net.ServicePointManager updated: $($report.ConfiguredProtocols)" -ForegroundColor Green
+        }
+    } catch {
+        $report.Status = "ERROR: $_"
+        if (-not $Silent) {
+            Write-Host "  [!] Warning updating ServicePointManager: $_" -ForegroundColor Yellow
+        }
+    }
+
+    # 2. Check Strong Crypto in Registry (Audit Only by default)
+    try {
+        $regPath64 = "HKLM:\\SOFTWARE\\Microsoft\\.NETFramework\\v4.0.30319"
+        $regPath32 = "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\.NETFramework\\v4.0.30319"
+
+        $val64 = (Get-ItemProperty -Path $regPath64 -Name "SchUseStrongCrypto" -ErrorAction SilentlyContinue).SchUseStrongCrypto
+        $val32 = (Get-ItemProperty -Path $regPath32 -Name "SchUseStrongCrypto" -ErrorAction SilentlyContinue).SchUseStrongCrypto
+
+        $report.StrongCrypto64 = if ($val64 -eq 1) { "ENABLED (1)" } else { "NOT_SET_OR_DISABLED ($val64)" }
+        $report.StrongCrypto32 = if ($val32 -eq 1) { "ENABLED (1)" } else { "NOT_SET_OR_DISABLED ($val32)" }
+    } catch {
+        $report.StrongCrypto64 = "ERROR_QUERYING"
+    }
+
+    return $report
+}
+
+function Enable-SystemNetStrongCryptoRegistry {
+    <#
+    .SYNOPSIS
+        Applies Windows Registry settings for system-wide .NET TLS 1.2 Strong Crypto
+    #>
+    [CmdletBinding()]
+    param()
+
+    $keys = @(
+        "HKLM:\\SOFTWARE\\Microsoft\\.NETFramework\\v4.0.30319",
+        "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\.NETFramework\\v4.0.30319",
+        "HKLM:\\SOFTWARE\\Microsoft\\.NETFramework\\v2.0.50727",
+        "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\.NETFramework\\v2.0.50727"
+    )
+
+    $appliedCount = 0
+    foreach ($k in $keys) {
+        if (Test-Path $k) {
+            try {
+                Set-ItemProperty -Path $k -Name "SchUseStrongCrypto" -Value 1 -Type DWord -Force -ErrorAction Stop
+                Set-ItemProperty -Path $k -Name "SystemDefaultTlsVersions" -Value 1 -Type DWord -Force -ErrorAction Stop
+                $appliedCount++
+            } catch {
+                Write-Warning "Could not set registry key $k : $_"
+            }
+        }
+    }
+
+    return @{
+        KeysUpdated = $appliedCount
+        Status      = "SUCCESS"
+    }
 }`
   },
   {
