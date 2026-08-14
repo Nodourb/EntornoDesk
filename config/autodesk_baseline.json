@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "ABEM Autodesk Baseline Specification",
+  "version": "1.0.0",
+  "releases": {
+    "2026": {
+      "minWindowsBuild": 19045,
+      "minWindowsVersion": "Windows 10 22H2 / Windows 11",
+      "requiredDotNet": [".NET Framework 4.8.1", ".NET 8.0 Desktop Runtime x64"],
+      "requiredVC": "VC++ 2015-2022 (>= 14.40)",
+      "requiresWebView2": true,
+      "minRamGb": 16,
+      "minDirectX": "DirectX 12 FL 12_0"
+    },
+    "2025": {
+      "minWindowsBuild": 19044,
+      "minWindowsVersion": "Windows 10 21H2 / Windows 11",
+      "requiredDotNet": [".NET Framework 4.8.1", ".NET 8.0 Desktop Runtime x64"],
+      "requiredVC": "VC++ 2015-2022 (>= 14.38)",
+      "requiresWebView2": true,
+      "minRamGb": 16,
+      "minDirectX": "Direct3D 11 FL 11_0 / DirectX 12"
+    },
+    "2024": {
+      "minWindowsBuild": 19041,
+      "minWindowsVersion": "Windows 10 2004 / Windows 11",
+      "requiredDotNet": [".NET Framework 4.8", ".NET 7.0 Desktop Runtime"],
+      "requiredVC": "VC++ 2015-2022 (>= 14.34)",
+      "requiresWebView2": true,
+      "minRamGb": 16,
+      "minDirectX": "Direct3D 11 FL 11_0"
+    }
+  }
+}

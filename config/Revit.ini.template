@@ -1,0 +1,17 @@
+[Graphics]
+UseHardware=1
+UseAdvancedDirect3D=1
+Antialiasing=0
+DisableGPUAcceleration=0
+AllowUncertifiedHardware=1
+
+[Performance]
+DisableDataAnalysis=1
+JournalCleanupFrequency=5
+MaxJournalFiles=5
+
+[Messages]
+SuppressHelpMessage=1
+
+[Directories]
+ProjectPath=%USERPROFILE%\Documents\RevitProjects
