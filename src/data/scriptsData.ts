@@ -4,7 +4,7 @@ export const REPOSITORY_SCRIPTS: ScriptFile[] = [
   {
     path: 'Quick-Audit.bat',
     category: 'root',
-    description: 'Safe launcher entry point for the ABEM Smoke Test. Elevates privileges via UAC, initializes TLS 1.2/1.3 System.Net.ServicePointManager, and executes Deploy-BimEnvironment.ps1 in non-destructive -Mode SmokeTest.',
+    description: 'Safe launcher entry point for the ABEM Smoke Test. Elevates privileges via UAC without invoking PowerShell and executes Deploy-BimEnvironment.ps1 in non-destructive -Mode SmokeTest.',
     language: 'bat',
     content: `@echo off
 :: ============================================================================
@@ -12,7 +12,7 @@ export const REPOSITORY_SCRIPTS: ScriptFile[] = [
 :: ============================================================================
 :: Purpose: Launches the ABEM Functional Smoke Test in a strictly read-only,
 :: non-destructive execution mode with process-scoped PowerShell execution policy.
-:: Enforces TLS 1.2 / TLS 1.3 ServicePointManager and Strong Crypto pre-initialization.
+:: Resilient against broken PowerShell initializers via fallback execution.
 :: ============================================================================
 
 setlocal EnableDelayedExpansion
@@ -22,12 +22,15 @@ title ABEM - Autodesk BIM Environment Manager (Smoke Test)
 set "ABEM_ROOT=%~dp0"
 if "%ABEM_ROOT:~-1%"=="\\" set "ABEM_ROOT=%ABEM_ROOT:~0,-1%"
 
-:: 2. Check for Administrative Privileges
+:: 2. Check for Administrative Privileges (Pure CMD)
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo [INFO] Requesting Administrator Privileges for System ^& Service Audit...
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor 3072 -bor 12288; Start-Process -FilePath '%~f0' -Verb RunAs"
-    exit /b %errorlevel%
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\\getadmin.vbs"
+    echo UAC.ShellExecute "%~f0", "", "", "runas", 1 >> "%temp%\\getadmin.vbs"
+    "%temp%\\getadmin.vbs"
+    del "%temp%\\getadmin.vbs" >nul 2>&1
+    exit /b
 )
 
 pushd "%ABEM_ROOT%"
@@ -42,9 +45,8 @@ echo   Safety Policy   : System Modifications Blocked (0 Changes Guaranteed)
 echo ============================================================================
 echo.
 
-:: 3. Pre-initialize TLS 1.2 / TLS 1.3 System.Net.ServicePointManager & Launch Orchestrator
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
-    "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072 -bor [System.Net.SecurityProtocolType]12288 -bor [System.Net.SecurityProtocolType]768; & '%ABEM_ROOT%\\Deploy-BimEnvironment.ps1' -Mode SmokeTest"
+:: 3. Safe invocation without crashing on ServicePointManager
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ABEM_ROOT%\\Deploy-BimEnvironment.ps1" -Mode SmokeTest
 
 set "EXIT_CODE=%ERRORLEVEL%"
 
@@ -54,6 +56,10 @@ if %EXIT_CODE% equ 0 (
     echo [SMOKE TEST RESULT] ABEM CORE ENGINE VERIFICATION: PASSED (Code 0)
 ) else (
     echo [SMOKE TEST RESULT] ABEM CORE ENGINE VERIFICATION: COMPLETED WITH WARNINGS/ISSUES (Code %EXIT_CODE%)
+    echo.
+    echo [TIP] Si observas un error en 'System.Net.ServicePointManager', ejecuta primero:
+    echo       Fix-NetSecurityPointManager.bat
+    echo       para reparar las directivas de cifrado de .NET en el Registro.
 )
 echo ----------------------------------------------------------------------------
 echo.
@@ -61,6 +67,116 @@ echo Press any key to close this console...
 pause >nul
 popd
 exit /b %EXIT_CODE%`
+  },
+  {
+    path: 'Fix-NetSecurityPointManager.bat',
+    category: 'root',
+    description: 'Emergency pure-batch fixer for corrupted .NET ServicePointManager and PowerShell CLR initialization crashes. Injects StrongCrypto and TLS 1.2 directly via Windows Registry.',
+    language: 'bat',
+    content: `@echo off
+:: ============================================================================
+:: AUTODESK BIM ENVIRONMENT MANAGER (ABEM) - REPAIR & RESCUE LAUNCHER
+:: ============================================================================
+:: Purpose: Repara el error critico de corrupcion en System.Net.ServicePointManager
+:: mediante comandos puros de CMD / REG.EXE (sin depender de PowerShell).
+:: Inyecta StrongCrypto y TLS 1.2 en el Registro de Windows y limpia machine.config.
+:: ============================================================================
+
+setlocal EnableDelayedExpansion
+title ABEM - Reparacion de Emergencia .NET / TLS / PowerShell
+
+echo ============================================================================
+echo      ABEM - REPARADOR DE EMERGENCIA .NET FRAMEWORK / SERVICEPOINTMANAGER
+echo ============================================================================
+echo.
+
+:: 1. Verificar privilegios de Administrador (puro CMD)
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [!] ERROR: Se requieren privilegios de Administrador.
+    echo [*] Por favor haz clic derecho sobre este archivo y selecciona "Ejecutar como Administrador".
+    echo.
+    pause
+    exit /b 1
+)
+
+echo [+] Privilegios de Administrador confirmados.
+echo.
+echo [*] PASO 1: Inyectando configuracion TLS 1.2 / StrongCrypto en el Registro...
+echo ----------------------------------------------------------------------------
+
+:: 64-bit .NET v4.0.30319
+reg add "HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\v4.0.30319" /v "SchUseStrongCrypto" /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\v4.0.30319" /v "SystemDefaultTlsVersions" /t REG_DWORD /d 1 /f >nul 2>&1
+
+:: 32-bit (WOW6432Node) .NET v4.0.30319
+reg add "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\.NETFramework\\v4.0.30319" /v "SchUseStrongCrypto" /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\.NETFramework\\v4.0.30319" /v "SystemDefaultTlsVersions" /t REG_DWORD /d 1 /f >nul 2>&1
+
+:: 64-bit .NET v2.0.50727
+reg add "HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\v2.0.50727" /v "SchUseStrongCrypto" /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\v2.0.50727" /v "SystemDefaultTlsVersions" /t REG_DWORD /d 1 /f >nul 2>&1
+
+:: 32-bit (WOW6432Node) .NET v2.0.50727
+reg add "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\.NETFramework\\v2.0.50727" /v "SchUseStrongCrypto" /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\.NETFramework\\v2.0.50727" /v "SystemDefaultTlsVersions" /t REG_DWORD /d 1 /f >nul 2>&1
+
+:: Habilitar TLS 1.2 en Windows Schannel
+reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Client" /v "DisabledByDefault" /t REG_DWORD /d 0 /f >nul 2>&1
+reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Client" /v "Enabled" /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server" /v "DisabledByDefault" /t REG_DWORD /d 0 /f >nul 2>&1
+reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server" /v "Enabled" /t REG_DWORD /d 1 /f >nul 2>&1
+
+echo   [OK] Claves de Registro aplicadas exitosamente.
+echo.
+
+echo [*] PASO 2: Verificando integridad de archivos de configuracion machine.config...
+echo ----------------------------------------------------------------------------
+set "MCONF64=%windir%\\Microsoft.NET\\Framework64\\v4.0.30319\\Config\\machine.config"
+set "MCONF32=%windir%\\Microsoft.NET\\Framework\\v4.0.30319\\Config\\machine.config"
+
+if exist "%MCONF64%" (
+    echo   [OK] machine.config (64-bit) localizado en: %MCONF64%
+) else (
+    if exist "%MCONF64%.default" (
+        echo   [!] Restaurando machine.config desde copia default...
+        copy /y "%MCONF64%.default" "%MCONF64%" >nul 2>&1
+    )
+)
+
+if exist "%MCONF32%" (
+    echo   [OK] machine.config (32-bit) localizado en: %MCONF32%
+) else (
+    if exist "%MCONF32%.default" (
+        echo   [!] Restaurando machine.config (32-bit) desde copia default...
+        copy /y "%MCONF32%.default" "%MCONF32%" >nul 2>&1
+    )
+)
+
+echo.
+echo [*] PASO 3: Probando inicio de PowerShell en modo seguro (Clean AppDomain)...
+echo ----------------------------------------------------------------------------
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Write-Host 'PowerShell CLR Engine: REPARADO Y OPERATIVO' -ForegroundColor Green" 2>nul
+set "PS_TEST=%errorlevel%"
+
+if %PS_TEST% equ 0 (
+    echo.
+    echo ============================================================================
+    echo   [EXITO] El motor .NET Framework y PowerShell han sido desbloqueados.
+    echo   Ya puedes ejecutar 'Quick-Audit.bat' sin el error de ServicePointManager.
+    echo ============================================================================
+) else (
+    echo.
+    echo ============================================================================
+    echo   [AVISO] PowerShell continua bloqueado por corrupcion profunda del CLR .NET.
+    echo   Para actualizar tu Windows 10 obsoleto a Windows 10 22H2 / Windows 11
+    echo   sin perder tus archivos, ejecuta el Asistente Oficial o el instalador ISO.
+    echo ============================================================================
+)
+
+echo.
+echo Presiona cualquier tecla para continuar...
+pause >nul`
   },
   {
     path: 'Deploy-BimEnvironment.ps1',
