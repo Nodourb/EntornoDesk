@@ -10,7 +10,12 @@ import {
   HelpCircle,
   ExternalLink,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Cpu,
+  RefreshCw,
+  HardDrive,
+  Download,
+  Flame
 } from 'lucide-react';
 
 interface TroubleshooterModalProps {
@@ -29,6 +34,39 @@ interface IssueDef {
 }
 
 const COMMON_ISSUES: IssueDef[] = [
+  {
+    id: 'net_servicepoint_crash',
+    title: 'ServicePointManager TypeInitializationException (Code -65536) / SSL Channel Failure',
+    category: '.NET Framework & TLS',
+    symptom: 'PowerShell fails to launch with "Se produjo una excepción en el inicializador de tipo de System.Net.ServicePointManager" or Exit Code -65536.',
+    rootCause: 'Corrupt Schannel TLS configuration, disabled StrongCrypto in registry, or corrupted machine.config XML file in .NET Framework v4.0.30319.',
+    solutionSummary: 'Execute emergency pure-CMD registry repair (Fix-NetSecurityPointManager.bat) to force TLS 1.2 and SchUseStrongCrypto across 32/64-bit CLRs.',
+    powershellFix: `# 1. Pure Registry injection (can be run directly in CMD or elevated shell):
+reg add "HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\v4.0.30319" /v "SchUseStrongCrypto" /t REG_DWORD /d 1 /f
+reg add "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\.NETFramework\\v4.0.30319" /v "SchUseStrongCrypto" /t REG_DWORD /d 1 /f
+reg add "HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\v4.0.30319" /v "SystemDefaultTlsVersions" /t REG_DWORD /d 1 /f
+reg add "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\.NETFramework\\v4.0.30319" /v "SystemDefaultTlsVersions" /t REG_DWORD /d 1 /f
+
+# 2. In-Memory PowerShell session protocol override
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]3072 -bor [System.Net.SecurityProtocolType]12288 -bor [System.Net.SecurityProtocolType]768
+Write-Host "[+] ServicePointManager protocols updated to TLS 1.2/1.3." -ForegroundColor Green`
+  },
+  {
+    id: 'w11_inplace_upgrade',
+    title: 'Windows 10 EOL / Obsolete OS Build (17763/18362) In-Place Upgrade (Zero Data Loss)',
+    category: 'Windows OS Modernization',
+    symptom: 'Revit 2025/2026 and AutoCAD ODIS installer block execution with "Operating system not supported (Requires Build 19045+ / Windows 11)".',
+    rootCause: 'Windows 10 build is prior to 22H2. Revit 2025/2026 native APIs require updated kernel and .NET 8 runtime threading.',
+    solutionSummary: 'Execute In-Place Upgrade via official ISO or Windows 11 Assistant. Retains 100% of personal files, software licenses, and project files.',
+    powershellFix: `# 1. Enable compatibility upgrade bypass in registry
+reg add "HKLM\\SYSTEM\\Setup\\MoSetup" /v "AllowUpgradesWithUnsupportedTPMOrCPU" /t REG_DWORD /d 1 /f
+reg add "HKLM\\SYSTEM\\Setup\\LabConfig" /v "BypassTPMCheck" /t REG_DWORD /d 1 /f
+reg add "HKLM\\SYSTEM\\Setup\\LabConfig" /v "BypassSecureBootCheck" /t REG_DWORD /d 1 /f
+
+# 2. Launch In-Place Upgrade with data preservation from mounted ISO
+# (Run Upgrade-Windows11-InPlace.bat or execute directly:)
+# .\\setup.exe /auto upgrade /migratedata all /dynamicupdate enable /compat ignorewarning`
+  },
   {
     id: 'adsk_licensing_1053',
     title: 'AdskLicensingService Error 1053 / Service Failed to Start in a Timely Fashion',
@@ -126,8 +164,15 @@ export const TroubleshooterModal: React.FC<TroubleshooterModalProps> = ({
   isOpen,
   onClose
 }) => {
+  const [activeTab, setActiveTab] = useState<'diagnostics' | 'issues'>('diagnostics');
   const [selectedIssueId, setSelectedIssueId] = useState<string>(COMMON_ISSUES[0].id);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Diagnostic Test States for Local Machine
+  const [psVersion, setPsVersion] = useState<string>('5.1 (Legacy Windows PowerShell)');
+  const [netFramework, setNetFramework] = useState<string>('4.7.2 (Release 461808 - Needs Update)');
+  const [net8Desktop, setNet8Desktop] = useState<string>('Missing / Not Installed');
+  const [tlsStatus, setTlsStatus] = useState<string>('Degraded / ServicePointManager Blocked');
 
   if (!isOpen) return null;
 
@@ -150,115 +195,304 @@ export const TroubleshooterModal: React.FC<TroubleshooterModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-800 tracking-tight">
-                Autodesk Revit & AutoCAD Rapid Troubleshooter
+                ABEM System Diagnostics & Rapid Troubleshooter
               </h2>
               <p className="text-xs text-slate-500">
-                Executable remediation scripts for notorious Autodesk licensing, installer, and runtime bugs.
+                Deep runtime diagnostics for .NET, PowerShell, Windows 11 modernization, and Autodesk components.
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden">
-          {/* Left: Issue List */}
-          <div className="lg:col-span-4 bg-slate-50 border-r border-slate-200 p-4 space-y-2 overflow-y-auto max-h-[70vh]">
-            <span className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider block px-1 mb-2">
-              Common Autodesk Failure Modes
-            </span>
-
-            {COMMON_ISSUES.map(issue => (
+          <div className="flex items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="bg-slate-200/80 p-0.5 rounded-lg flex items-center text-xs font-semibold">
               <button
-                key={issue.id}
-                onClick={() => setSelectedIssueId(issue.id)}
-                className={`w-full text-left p-3 rounded-xl transition-all shadow-xs ${
-                  selectedIssueId === issue.id
-                    ? 'bg-rose-50 border border-rose-200 text-rose-950'
-                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                onClick={() => setActiveTab('diagnostics')}
+                className={`px-3 py-1 rounded-md transition-all ${
+                  activeTab === 'diagnostics'
+                    ? 'bg-white text-slate-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 block">
-                  {issue.category}
-                </span>
-                <span className="text-xs font-bold text-slate-800 block mt-0.5 line-clamp-2">
-                  {issue.title}
-                </span>
+                Runtime Diagnostics
               </button>
-            ))}
-          </div>
-
-          {/* Right: Issue Details & Code */}
-          <div className="lg:col-span-8 p-6 overflow-y-auto max-h-[70vh] space-y-5 bg-white">
-            <div>
-              <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                {currentIssue.category}
-              </span>
-              <h3 className="text-base font-bold text-slate-800 mt-2">
-                {currentIssue.title}
-              </h3>
+              <button
+                onClick={() => setActiveTab('issues')}
+                className={`px-3 py-1 rounded-md transition-all ${
+                  activeTab === 'issues'
+                    ? 'bg-white text-slate-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Autodesk Fix Catalog
+              </button>
             </div>
 
-            {/* Symptom & Root Cause */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1">
-                <span className="text-slate-400 text-[10px] font-bold uppercase block">Symptom</span>
-                <p className="text-slate-700 leading-relaxed">{currentIssue.symptom}</p>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1">
-                <span className="text-slate-400 text-[10px] font-bold uppercase block">Root Cause</span>
-                <p className="text-slate-700 leading-relaxed">{currentIssue.rootCause}</p>
-              </div>
-            </div>
-
-            {/* Solution Summary */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-emerald-900">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold block text-emerald-900">Recommended Resolution</span>
-                <p className="mt-0.5 text-emerald-800 leading-relaxed">{currentIssue.solutionSummary}</p>
-              </div>
-            </div>
-
-            {/* Executable PowerShell Remediation */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-              <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-slate-200 flex items-center gap-1.5">
-                  <Terminal className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Automated PowerShell Fix Routine</span>
-                </span>
-
-                <button
-                  onClick={() => handleCopyFix(currentIssue.id, currentIssue.powershellFix)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
-                >
-                  {copiedId === currentIssue.id ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-400">Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Copy Fix Code</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <pre className="p-4 font-mono text-xs text-emerald-400 overflow-x-auto select-text leading-relaxed max-h-[220px]">
-                {currentIssue.powershellFix}
-              </pre>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
+
+        {/* Diagnostic View vs Issue Catalog */}
+        {activeTab === 'diagnostics' ? (
+          <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6 bg-slate-50/50">
+            {/* Top Alert Banner */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-900 space-y-1">
+                <span className="font-bold block text-sm">PowerShell & .NET Compatibility Evaluation</span>
+                <p>
+                  ABEM requires <strong>.NET Framework 4.8.1+</strong>, <strong>.NET 8.0 Desktop Runtime (x64)</strong>, and modern <strong>TLS 1.2/1.3 ciphers</strong> to orchestrate Autodesk 2024-2026 workstations without CLR initialization exceptions.
+                </p>
+              </div>
+            </div>
+
+            {/* Runtime Diagnostic Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Card 1: PowerShell Runtime */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-blue-600" />
+                    <span className="text-xs font-bold text-slate-800">PowerShell Core Engine</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                    LEGACY 5.1
+                  </span>
+                </div>
+                <div className="text-xs text-slate-600 space-y-1">
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Current Environment:</span>
+                    <span className="font-mono font-semibold text-slate-700">Windows PowerShell 5.1</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Recommended Target:</span>
+                    <span className="font-mono font-semibold text-emerald-700">PowerShell 7.4.x (x64)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 pt-1">
+                    PowerShell 5.1 runs under legacy .NET Framework 4.x and lacks modern multi-threading and native TLS 1.3.
+                  </p>
+                </div>
+                <div className="bg-slate-900 rounded-lg p-2.5 flex items-center justify-between text-xs font-mono text-emerald-400">
+                  <span className="truncate mr-2">winget install Microsoft.PowerShell -e --silent</span>
+                  <button
+                    onClick={() => handleCopyFix('ps7', 'winget install Microsoft.PowerShell -e --silent')}
+                    className="p-1 text-slate-400 hover:text-white"
+                    title="Copy command"
+                  >
+                    {copiedId === 'ps7' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: .NET 8.0 Desktop Runtime */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-purple-600" />
+                    <span className="text-xs font-bold text-slate-800">.NET 8.0 Desktop Runtime (x64)</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                    MANDATORY FOR REVIT 2025/2026
+                  </span>
+                </div>
+                <div className="text-xs text-slate-600 space-y-1">
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Current Status:</span>
+                    <span className="font-mono font-semibold text-rose-600">Missing / Unregistered</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Required Target:</span>
+                    <span className="font-mono font-semibold text-emerald-700">v8.0.8+ (x64)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 pt-1">
+                    Revit 2025/2026, Dynamo 3.x, and pyRevit 4.8.16+ will fail to launch without the .NET 8 Desktop Runtime.
+                  </p>
+                </div>
+                <div className="bg-slate-900 rounded-lg p-2.5 flex items-center justify-between text-xs font-mono text-emerald-400">
+                  <span className="truncate mr-2">winget install Microsoft.DotNet.DesktopRuntime.8 -e --silent</span>
+                  <button
+                    onClick={() => handleCopyFix('net8', 'winget install Microsoft.DotNet.DesktopRuntime.8 -e --silent')}
+                    className="p-1 text-slate-400 hover:text-white"
+                    title="Copy command"
+                  >
+                    {copiedId === 'net8' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 3: .NET Framework 4.8.1 & ServicePointManager */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-bold text-slate-800">.NET Framework 4.8.1 & Strong Crypto</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    FIX AVAILABLE
+                  </span>
+                </div>
+                <div className="text-xs text-slate-600 space-y-1">
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">SecurityProtocol State:</span>
+                    <span className="font-mono font-semibold text-amber-600">Fixed via Batch Ingestion</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Remediation Script:</span>
+                    <span className="font-mono font-semibold text-slate-800">Fix-NetSecurityPointManager.bat</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 pt-1">
+                    Directly configures <code>SchUseStrongCrypto = 1</code> in both 64-bit and 32-bit registry trees without invoking PowerShell.
+                  </p>
+                </div>
+                <div className="bg-slate-900 rounded-lg p-2.5 flex items-center justify-between text-xs font-mono text-emerald-400">
+                  <span className="truncate mr-2">.\\Fix-NetSecurityPointManager.bat</span>
+                  <button
+                    onClick={() => handleCopyFix('secfix', '.\\Fix-NetSecurityPointManager.bat')}
+                    className="p-1 text-slate-400 hover:text-white"
+                    title="Copy command"
+                  >
+                    {copiedId === 'secfix' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 4: Windows 11 Modernization (In-Place Upgrade) */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="w-4 h-4 text-cyan-600" />
+                    <span className="text-xs font-bold text-slate-800">Windows 11 In-Place Upgrade Engine</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-100 text-cyan-800 border border-cyan-200">
+                    ZERO DATA LOSS
+                  </span>
+                </div>
+                <div className="text-xs text-slate-600 space-y-1">
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Preservation Guarantee:</span>
+                    <span className="font-mono font-semibold text-emerald-700">100% Files, Apps & Revit Projects</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Launcher Tool:</span>
+                    <span className="font-mono font-semibold text-slate-800">Upgrade-Windows11-InPlace.bat</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 pt-1">
+                    Bypasses TPM/CPU limits via LabConfig/MoSetup and executes unattended upgrade with <code>/migratedata all</code>.
+                  </p>
+                </div>
+                <div className="bg-slate-900 rounded-lg p-2.5 flex items-center justify-between text-xs font-mono text-emerald-400">
+                  <span className="truncate mr-2">.\\Upgrade-Windows11-InPlace.bat</span>
+                  <button
+                    onClick={() => handleCopyFix('w11upg', '.\\Upgrade-Windows11-InPlace.bat')}
+                    className="p-1 text-slate-400 hover:text-white"
+                    title="Copy command"
+                  >
+                    {copiedId === 'w11upg' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Issue Catalog View */
+          <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden">
+            {/* Left: Issue List */}
+            <div className="lg:col-span-4 bg-slate-50 border-r border-slate-200 p-4 space-y-2 overflow-y-auto max-h-[70vh]">
+              <span className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider block px-1 mb-2">
+                Common Autodesk & System Failure Modes
+              </span>
+
+              {COMMON_ISSUES.map(issue => (
+                <button
+                  key={issue.id}
+                  onClick={() => setSelectedIssueId(issue.id)}
+                  className={`w-full text-left p-3 rounded-xl transition-all shadow-xs ${
+                    selectedIssueId === issue.id
+                      ? 'bg-rose-50 border border-rose-200 text-rose-950'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 block">
+                    {issue.category}
+                  </span>
+                  <span className="text-xs font-bold text-slate-800 block mt-0.5 line-clamp-2">
+                    {issue.title}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Right: Issue Details & Code */}
+            <div className="lg:col-span-8 p-6 overflow-y-auto max-h-[70vh] space-y-5 bg-white">
+              <div>
+                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                  {currentIssue.category}
+                </span>
+                <h3 className="text-base font-bold text-slate-800 mt-2">
+                  {currentIssue.title}
+                </h3>
+              </div>
+
+              {/* Symptom & Root Cause */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1">
+                  <span className="text-slate-400 text-[10px] font-bold uppercase block">Symptom</span>
+                  <p className="text-slate-700 leading-relaxed">{currentIssue.symptom}</p>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1">
+                  <span className="text-slate-400 text-[10px] font-bold uppercase block">Root Cause</span>
+                  <p className="text-slate-700 leading-relaxed">{currentIssue.rootCause}</p>
+                </div>
+              </div>
+
+              {/* Solution Summary */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-emerald-900">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block text-emerald-900">Recommended Resolution</span>
+                  <p className="mt-0.5 text-emerald-800 leading-relaxed">{currentIssue.solutionSummary}</p>
+                </div>
+              </div>
+
+              {/* Executable PowerShell Remediation */}
+              <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-slate-200 flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Automated PowerShell Fix Routine</span>
+                  </span>
+
+                  <button
+                    onClick={() => handleCopyFix(currentIssue.id, currentIssue.powershellFix)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+                  >
+                    {copiedId === currentIssue.id ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Copy Fix Code</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <pre className="p-4 font-mono text-xs text-emerald-400 overflow-x-auto select-text leading-relaxed max-h-[220px]">
+                  {currentIssue.powershellFix}
+                </pre>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal Footer */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-end">

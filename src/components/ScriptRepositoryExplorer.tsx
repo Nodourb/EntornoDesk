@@ -71,7 +71,7 @@ export const ScriptRepositoryExplorer: React.FC<ScriptRepositoryExplorerProps> =
               Declarative BIM Repository Architecture
             </h2>
             <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-              12 Production Files
+              {REPOSITORY_SCRIPTS.length} Production Files
             </span>
           </div>
           <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">

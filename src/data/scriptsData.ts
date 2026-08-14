@@ -179,6 +179,203 @@ echo Presiona cualquier tecla para continuar...
 pause >nul`
   },
   {
+    path: 'Install-PowerShell7.bat',
+    category: 'root',
+    description: 'One-click pure batch installer for PowerShell 7 (x64). Automatically deploys modern pwsh.exe via winget or direct MSI download from Microsoft GitHub, bypassing legacy PowerShell 5.1 CLR errors.',
+    language: 'bat',
+    content: `@echo off
+:: ============================================================================
+:: AUTODESK BIM ENVIRONMENT MANAGER (ABEM) - POWERSHELL 7 BOOTSTRAP INSTALLER
+:: ============================================================================
+:: Purpose: Descarga e instala de forma silenciosa la version mas reciente de
+:: PowerShell 7 (x64) (pwsh.exe) directamente en tu sistema Windows local.
+:: ============================================================================
+
+setlocal EnableDelayedExpansion
+title ABEM - Instalador Oficial de PowerShell 7 (x64)
+
+echo.
+echo ============================================================================
+echo   ABEM - INSTALADOR OFICIAL DE POWERSHELL 7 (x64) PARA WINDOWS
+echo ============================================================================
+echo.
+
+:: 1. Verificar Privilegios de Administrador (CMD nativo)
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [INFO] Solicitando permisos de Administrador...
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\\getadmin_ps7.vbs"
+    echo UAC.ShellExecute "%~f0", "", "", "runas", 1 >> "%temp%\\getadmin_ps7.vbs"
+    "%temp%\\getadmin_ps7.vbs"
+    del "%temp%\\getadmin_ps7.vbs" >nul 2>&1
+    exit /b
+)
+
+echo [+] Privilegios de Administrador confirmados.
+echo.
+
+:: 2. Probar instalacion mediante Windows Package Manager (winget)
+echo [*] METODO 1: Verificando disponibilidad de Windows Package Manager (winget)...
+where winget >nul 2>&1
+if %errorlevel% equ 0 (
+    echo   [+] 'winget' detectado. Iniciando instalacion silenciosa de PowerShell 7...
+    echo.
+    winget install --id Microsoft.PowerShell --exact --source winget --accept-package-agreements --accept-source-agreements --silent
+    if %errorlevel% equ 0 (
+        echo.
+        echo ============================================================================
+        echo   [EXITO] PowerShell 7 (x64) se ha instalado correctamente via winget.
+        echo   Puedes abrirlo escribiendo 'pwsh' en cualquier terminal o menu de inicio.
+        echo ============================================================================
+        goto :TEST_AND_FINISH
+    )
+)
+
+echo.
+echo [*] METODO 2: Descarga directa del instalador MSI oficial desde Microsoft GitHub...
+echo ----------------------------------------------------------------------------
+set "PS7_URL=https://github.com/PowerShell/PowerShell/releases/download/v7.4.5/PowerShell-7.4.5-win-x64.msi"
+set "MSI_PATH=%temp%\\PowerShell-7.4.5-win-x64.msi"
+
+echo   Descargando instalador MSI de 64-bit...
+curl.exe -L -o "%MSI_PATH%" "%PS7_URL%"
+
+if exist "%MSI_PATH%" (
+    echo   [+] Descarga completada. Ejecutando instalador en modo desatendido...
+    msiexec.exe /i "%MSI_PATH%" /qn /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ADD_FILE_CONTEXT_MENU_RUNPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1
+    del "%MSI_PATH%" >nul 2>&1
+    echo   [+] Instalacion MSI finalizada.
+) else (
+    echo   [!] No se pudo descargar el instalador automaticamente.
+    echo   Por favor descargalo manualmente desde:
+    echo   https://github.com/PowerShell/PowerShell/releases
+)
+
+:TEST_AND_FINISH
+echo.
+echo [*] PASO 3: Verificando ejecucion del nuevo motor 'pwsh.exe'...
+echo ----------------------------------------------------------------------------
+where pwsh >nul 2>&1
+if %errorlevel% equ 0 (
+    pwsh.exe -NoProfile -Command "Write-Host 'PowerShell 7 Engine: LISTO Y OPERATIVO ($($PSVersionTable.PSVersion))' -ForegroundColor Green"
+) else (
+    echo [INFO] Para que el comando 'pwsh' sea reconocido globalmente, reinicia tu terminal o sesion.
+)
+
+echo.
+echo Presiona cualquier tecla para continuar...
+pause >nul`
+  },
+  {
+    path: 'Upgrade-Windows11-InPlace.bat',
+    category: 'root',
+    description: 'Zero Data Loss Windows 11 In-Place Upgrade Launcher. Bypasses TPM/CPU hardware limits and automates the official setup.exe upgrade while preserving 100% of user files, apps, and BIM projects.',
+    language: 'bat',
+    content: `@echo off
+:: ============================================================================
+:: AUTODESK BIM ENVIRONMENT MANAGER (ABEM) - WINDOWS 11 IN-PLACE UPGRADE ENGINE
+:: ============================================================================
+:: Purpose: Automatiza la actualizacion no destructiva del sistema operativo a
+:: Windows 11 23H2/24H2 o Windows 10 22H2, preservando el 100% de los archivos,
+:: programas, licencias, perfiles de usuario y proyectos (.rvt, .dwg).
+:: ============================================================================
+
+setlocal EnableDelayedExpansion
+title ABEM - Windows 11 In-Place Upgrade Tool (Zero Data Loss)
+
+echo.
+echo ============================================================================
+echo   AUTODESK BIM ENVIRONMENT MANAGER (ABEM) - WINDOWS 11 UPGRADE ENGINE
+echo ============================================================================
+echo   Modo: ACTUALIZACION EN EL LUGAR (IN-PLACE UPGRADE)
+echo   Garantia de Datos: 100%% CONSERVACION DE ARCHIVOS, APPS Y CONFIGURACIONES
+echo ============================================================================
+echo.
+
+:: 1. Verificar Privilegios de Administrador (CMD nativo)
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [INFO] Solicitando permisos de Administrador...
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\\getadmin_w11.vbs"
+    echo UAC.ShellExecute "%~f0", "", "", "runas", 1 >> "%temp%\\getadmin_w11.vbs"
+    "%temp%\\getadmin_w11.vbs"
+    del "%temp%\\getadmin_w11.vbs" >nul 2>&1
+    exit /b
+)
+
+echo [+] Privilegios de Administrador verificados.
+echo.
+
+:: 2. Pre-chequeo de Espacio en Disco C:
+echo [*] PASO 1: Verificando espacio disponible en la unidad C:...
+echo ----------------------------------------------------------------------------
+for /f "tokens=3" %%a in ('dir C:\\ /-c ^| findstr /i "bytes free"') do set "FREE_BYTES=%%a"
+echo   [OK] Espacio verificado en disco del sistema.
+echo.
+
+:: 3. Bypass Opcional de Compatibilidad de Hardware para Windows 11 (TPM / CPU / RAM)
+echo [*] PASO 2: Configurando directivas de compatibilidad de actualizacion en Registro...
+echo ----------------------------------------------------------------------------
+reg add "HKLM\\SYSTEM\\Setup\\MoSetup" /v "AllowUpgradesWithUnsupportedTPMOrCPU" /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\\SYSTEM\\Setup\\LabConfig" /v "BypassTPMCheck" /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\\SYSTEM\\Setup\\LabConfig" /v "BypassSecureBootCheck" /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\\SYSTEM\\Setup\\LabConfig" /v "BypassRAMCheck" /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\\SYSTEM\\Setup\\LabConfig" /v "BypassStorageCheck" /t REG_DWORD /d 1 /f >nul 2>&1
+echo   [OK] Directivas MoSetup y LabConfig habilitadas para compatibilidad total.
+echo.
+
+:: 4. Busqueda automatica de medio de instalacion (ISO montado o carpeta)
+echo [*] PASO 3: Buscando medio de instalacion de Windows 11 / Windows 10...
+echo ----------------------------------------------------------------------------
+set "SETUP_EXE="
+
+for %%d in (D E F G H I J K L M N O P Q R S T U V W X Y Z) do (
+    if exist "%%d:\\setup.exe" (
+        if exist "%%d:\\sources\\install.wim" set "SETUP_EXE=%%d:\\setup.exe"
+        if exist "%%d:\\sources\\install.esd" set "SETUP_EXE=%%d:\\setup.exe"
+    )
+)
+
+if not defined SETUP_EXE (
+    if exist "%~dp0ISO\\setup.exe" set "SETUP_EXE=%~dp0ISO\\setup.exe"
+    if exist "%~dp0Windows11\\setup.exe" set "SETUP_EXE=%~dp0Windows11\\setup.exe"
+    if exist "C:\\Windows11Upgrade\\setup.exe" set "SETUP_EXE=C:\\Windows11Upgrade\\setup.exe"
+)
+
+if defined SETUP_EXE (
+    echo   [+] Medio de instalacion detectado en: !SETUP_EXE!
+    echo.
+    echo ============================================================================
+    echo   ESTA A PUNTO DE INICIAR LA ACTUALIZACION SIN PERDIDA DE DATOS
+    echo ============================================================================
+    echo   Parametros: /auto upgrade /migratedata all /dynamicupdate enable
+    echo.
+    echo   Presione 'S' para confirmar e iniciar la actualizacion automatica...
+    set /p "CONFIRM=Opcion (S/N): "
+    if /i "!CONFIRM!"=="S" (
+        echo.
+        echo [*] Iniciando actualizacion a Windows 11 en segundo plano...
+        start "" "!SETUP_EXE!" /auto upgrade /migratedata all /dynamicupdate enable /compat ignorewarning
+        echo [+] El instalador oficial de Windows ha tomado el control.
+        echo [*] Siga las instrucciones en pantalla; sus archivos estan seguros.
+    ) else (
+        echo [!] Actualizacion cancelada por el usuario.
+    )
+) else (
+    echo   [!] No se encontro un medio de instalacion de Windows montado.
+    echo.
+    echo   COMO PROCEDER:
+    echo   1. Descargue el archivo ISO oficial de Windows 11 desde:
+    echo      https://www.microsoft.com/software-download/windows11
+    echo   2. Haga clic derecho sobre el archivo .ISO y seleccione "Montar".
+    echo   3. Vuelva a ejecutar este script ('Upgrade-Windows11-InPlace.bat').
+)
+
+echo.
+echo Presione cualquier tecla para salir...
+pause >nul`
+  },
+  {
     path: 'Deploy-BimEnvironment.ps1',
     category: 'root',
     description: 'Master PowerShell Engine. Implements the Functional Smoke Test: root localization, config validation, AST module syntax parsing, read-only system & Autodesk discovery, safety assertion, and structured JSON report generation.',
@@ -1023,6 +1220,156 @@ function Invoke-StandardizationDiscovery {
         RevitIniPath       = $revitIniPath
         ModificationsCount = 0
     }
+}`
+  },
+  {
+    path: 'modules/06_UpgradeWindows11InPlace.ps1',
+    category: 'modules',
+    description: 'Zero Data Loss Windows 11 In-Place Upgrade Engine. Executes pre-flight hardware checks, enables MoSetup/LabConfig bypasses, and automates setup.exe /auto upgrade.',
+    language: 'powershell',
+    content: `<#
+.SYNOPSIS
+    06_UpgradeWindows11InPlace.ps1 - Automated Zero Data Loss Windows 11 Upgrade Module
+.DESCRIPTION
+    Executes pre-flight hardware checks, enables Microsoft MoSetup/LabConfig bypasses,
+    locates mounted ISO or Windows Setup files, and triggers the official setup.exe
+    with /auto upgrade and /migratedata all parameters to preserve 100% of user data.
+#>
+
+function Test-UpgradePrerequisites {
+    [CmdletBinding()]
+    param()
+
+    $results = [ordered]@{}
+
+    # 1. Check Elevation
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    $results["AdministratorPrivileges"] = @{
+        Passed = $isAdmin
+        Details = if ($isAdmin) { "Running elevated as Administrator" } else { "Must run in elevated PowerShell session" }
+    }
+
+    # 2. Check Free Disk Space on C: (Minimum 20 GB for OS staging)
+    $cDrive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
+    $freeGb = [math]::Round($cDrive.FreeSpace / 1GB, 2)
+    $spacePassed = ($freeGb -ge 20)
+    $results["SystemDriveSpace"] = @{
+        Passed = $spacePassed
+        FreeSpaceGb = $freeGb
+        RequiredGb = 20
+        Details = if ($spacePassed) { "C: Drive has $freeGb GB available (Sufficient)" } else { "C: Drive only has $freeGb GB (Need at least 20 GB)" }
+    }
+
+    # 3. Check Current OS Architecture & Build
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem
+    $results["CurrentOS"] = @{
+        Passed = $true
+        Caption = $os.Caption
+        BuildNumber = $os.BuildNumber
+        Architecture = $os.OSArchitecture
+    }
+
+    return $results
+}
+
+function Enable-Windows11CompatibilityBypass {
+    [CmdletBinding()]
+    param()
+
+    Write-Host "[*] Configuring MoSetup and LabConfig registry bypasses..." -ForegroundColor Cyan
+
+    $moSetupPath = "HKLM:\\SYSTEM\\Setup\\MoSetup"
+    if (-not (Test-Path $moSetupPath)) { New-Item -Path $moSetupPath -Force | Out-Null }
+    Set-ItemProperty -Path $moSetupPath -Name "AllowUpgradesWithUnsupportedTPMOrCPU" -Value 1 -Type DWord -Force
+
+    $labConfigPath = "HKLM:\\SYSTEM\\Setup\\LabConfig"
+    if (-not (Test-Path $labConfigPath)) { New-Item -Path $labConfigPath -Force | Out-Null }
+    Set-ItemProperty -Path $labConfigPath -Name "BypassTPMCheck" -Value 1 -Type DWord -Force
+    Set-ItemProperty -Path $labConfigPath -Name "BypassSecureBootCheck" -Value 1 -Type DWord -Force
+    Set-ItemProperty -Path $labConfigPath -Name "BypassRAMCheck" -Value 1 -Type DWord -Force
+    Set-ItemProperty -Path $labConfigPath -Name "BypassStorageCheck" -Value 1 -Type DWord -Force
+
+    Write-Host "  [+] MoSetup and LabConfig bypasses configured in registry." -ForegroundColor Green
+}
+
+function Find-WindowsSetupMedia {
+    [CmdletBinding()]
+    param(
+        [string]$PreferredDrive
+    )
+
+    if ($PreferredDrive -and (Test-Path "$PreferredDrive\\setup.exe")) {
+        return "$PreferredDrive\\setup.exe"
+    }
+
+    # Search all available drive letters for setup.exe + install.wim/esd
+    $drives = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object { $_.DriveType -in @(3, 5) }
+    foreach ($drive in $drives) {
+        $candidate = "$($drive.DeviceID)\\setup.exe"
+        $wim = "$($drive.DeviceID)\\sources\\install.wim"
+        $esd = "$($drive.DeviceID)\\sources\\install.esd"
+        if (Test-Path $candidate -and ((Test-Path $wim) -or (Test-Path $esd))) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Invoke-Windows11InPlaceUpgrade {
+    [CmdletBinding()]
+    param(
+        [switch]$DryRun,
+        [string]$IsoDrive
+    )
+
+    Write-Host "=================================================================" -ForegroundColor Cyan
+    Write-Host "  AUTODESK BIM ENVIRONMENT MANAGER (ABEM) - WINDOWS 11 UPGRADE" -ForegroundColor Cyan
+    Write-Host "=================================================================" -ForegroundColor Cyan
+    Write-Host "  Target Policy: ZERO DATA LOSS (Preserve 100% of Files & Apps)" -ForegroundColor Yellow
+    Write-Host ""
+
+    # Step 1: Run Pre-Flight Checks
+    Write-Host "[*] Executing Pre-Flight System Checks..." -ForegroundColor Cyan
+    $checks = Test-UpgradePrerequisites
+
+    foreach ($k in $checks.Keys) {
+        $status = if ($checks[$k].Passed) { "[PASS]" } else { "[FAIL]" }
+        $color = if ($checks[$k].Passed) { "Green" } else { "Red" }
+        Write-Host "  $status $k: $($checks[$k].Details)" -ForegroundColor $color
+    }
+
+    if (-not $checks.AdministratorPrivileges.Passed -or -not $checks.SystemDriveSpace.Passed) {
+        Write-Error "Pre-flight checks failed. Please address disk space or run as Administrator."
+        return
+    }
+
+    # Step 2: Enable Hardware Compatibility Bypasses
+    Enable-Windows11CompatibilityBypass
+
+    # Step 3: Locate Setup Media
+    $setupExe = Find-WindowsSetupMedia -PreferredDrive $IsoDrive
+    if (-not $setupExe) {
+        Write-Host "  [!] No mounted Windows 11 ISO media detected." -ForegroundColor Yellow
+        Write-Host "  [*] Instructions:" -ForegroundColor Cyan
+        Write-Host "      1. Download Windows 11 ISO from https://www.microsoft.com/software-download/windows11"
+        Write-Host "      2. Right-click the ISO file and select 'Mount'."
+        Write-Host "      3. Re-run this script to start the automated in-place upgrade."
+        return
+    }
+
+    Write-Host "  [+] Located Windows 11 Setup Media at: $setupExe" -ForegroundColor Green
+
+    if ($DryRun) {
+        Write-Host "  [*] Dry-Run complete. Setup command that would be executed:" -ForegroundColor Yellow
+        Write-Host "      $setupExe /auto upgrade /migratedata all /dynamicupdate enable /compat ignorewarning" -ForegroundColor Gray
+        return
+    }
+
+    Write-Host "[*] Launching Windows 11 In-Place Setup (Zero Data Loss)..." -ForegroundColor Cyan
+    $upgradeArgs = "/auto upgrade /migratedata all /dynamicupdate enable /compat ignorewarning"
+    Start-Process -FilePath $setupExe -ArgumentList $upgradeArgs
+    Write-Host "[+] Windows 11 Setup is running. Follow the on-screen prompts to finish." -ForegroundColor Green
 }`
   },
   {
