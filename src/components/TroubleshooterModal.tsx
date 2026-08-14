@@ -68,6 +68,19 @@ reg add "HKLM\\SYSTEM\\Setup\\LabConfig" /v "BypassSecureBootCheck" /t REG_DWORD
 # .\\setup.exe /auto upgrade /migratedata all /dynamicupdate enable /compat ignorewarning`
   },
   {
+    id: 'win_update_prep_pipeline',
+    title: 'Windows Update Preparation Pipeline (Edge Unblock, DISM/SFC Health, Root CA & Defender)',
+    category: 'Windows OS Modernization',
+    symptom: 'Blocked ISO downloads in Edge, corrupt WinSxS component store, or SmartScreen/Defender locking upgrade files.',
+    rootCause: 'Browser download security restrictions, untrusted root certificates, or corrupted component store packages preventing upgrade.',
+    solutionSummary: 'Execute Prepare-WindowsUpdate.bat to run full DISM/SFC healing, unlock Edge policies, sync Microsoft Root CAs, and audit staging artifacts.',
+    powershellFix: `# 1. Run Complete ABEM / AKS Workspace Windows Preparation Pipeline:
+.\\Prepare-WindowsUpdate.bat
+
+# 2. Or execute the PowerShell module directly with structured JSON telemetry:
+.\\modules\\07_WindowsUpdatePreparationManager.ps1 -PipelineMode FullPreparation -AksWorkspaceRoot "C:\\BIM\\REPOSITORIOS\\EntornoDesk"`
+  },
+  {
     id: 'adsk_licensing_1053',
     title: 'AdskLicensingService Error 1053 / Service Failed to Start in a Timely Fashion',
     category: 'Licensing Subsystem',
@@ -393,6 +406,43 @@ export const TroubleshooterModal: React.FC<TroubleshooterModalProps> = ({
                     title="Copy command"
                   >
                     {copiedId === 'w11upg' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 5: Windows Update Preparation Manager */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3 md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-purple-600" />
+                    <span className="text-xs font-bold text-slate-800">Windows Update Preparation Manager (AKS Workspace Engine)</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                    PRE-FLIGHT PIPELINE
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-600">
+                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                    <span className="font-semibold text-slate-700 block">1. Security & Edge Unblock</span>
+                    <p className="text-[11px] text-slate-500">Unlocks Edge ISO download policies & adds Defender staging exclusions.</p>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                    <span className="font-semibold text-slate-700 block">2. DISM & SFC Store Healing</span>
+                    <p className="text-[11px] text-slate-500">Executes /RestoreHealth + SFC /scannow and synchronizes Microsoft Root CAs.</p>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                    <span className="font-semibold text-slate-700 block">3. Structured Telemetry</span>
+                    <p className="text-[11px] text-slate-500">Generates JSON pre-flight reports into <code>reports/</code> and <code>logs/</code>.</p>
+                  </div>
+                </div>
+                <div className="bg-slate-900 rounded-lg p-2.5 flex items-center justify-between text-xs font-mono text-purple-300">
+                  <span className="truncate mr-2">.\\Prepare-WindowsUpdate.bat</span>
+                  <button
+                    onClick={() => handleCopyFix('winprep', '.\\Prepare-WindowsUpdate.bat')}
+                    className="p-1 text-slate-400 hover:text-white"
+                    title="Copy command"
+                  >
+                    {copiedId === 'winprep' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
