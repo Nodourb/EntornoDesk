@@ -1,0 +1,27 @@
+{
+  "module": "CryptoCore",
+  "version": "1.0.0",
+  "architectureLevel": "Level_A_Scalable",
+  "cipher": {
+    "algorithm": "AES",
+    "keySizeBits": 256,
+    "blockSizeBits": 128,
+    "cipherMode": "CBC",
+    "paddingMode": "PKCS7",
+    "keyDerivation": {
+      "function": "PBKDF2-HMAC-SHA256",
+      "iterations": 100000,
+      "saltSizeBytes": 16
+    }
+  },
+  "storage": {
+    "defaultKeyPath": "C:\\BIM\\REPOSITORIOS\\EntornoDesk\\CryptoCore\\keys\\master.key",
+    "quarantinePath": "C:\\SecuritySandbox\\quarantine",
+    "logsDirectory": "C:\\BIM\\REPOSITORIOS\\EntornoDesk\\logs"
+  },
+  "policies": {
+    "autoEncryptWorkspaces": false,
+    "allowMemoryKeyCaching": false,
+    "protectedExtensions": [".rvt", ".dwg", ".rfa", ".dyn", ".json", ".ps1", ".key", ".config"]
+  }
+}

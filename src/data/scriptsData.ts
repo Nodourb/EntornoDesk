@@ -2,6 +2,136 @@ import { ScriptFile } from '../types';
 
 export const REPOSITORY_SCRIPTS: ScriptFile[] = [
   {
+    path: 'CryptoCore/core/CryptoEngine.ps1',
+    category: 'modules',
+    description: 'Motor Criptográfico Soberano AES-256-CBC con derivación PBKDF2 (100,000 iteraciones) para protección de datos BIM/CAD.',
+    language: 'powershell',
+    content: `<#
+.SYNOPSIS
+    CryptoEngine.ps1 - Core Cryptographic Engine for CryptoCore (AES-256-CBC with PBKDF2-HMAC-SHA256)
+.DESCRIPTION
+    Provides high-performance, stream-capable cryptographic operations for files and buffers:
+    - Cipher: AES-256 (256-bit Key, 128-bit Block Size, CBC Mode, PKCS7 Padding)
+    - Key Derivation: PBKDF2 (Rfc2898DeriveBytes) with 100,000 iterations and 128-bit cryptographic salt
+    - Binary Container Format: [16 Bytes Salt][Ciphertext Stream]
+#>
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('encrypt', 'decrypt', 'benchmark')]
+    [string]$Mode,
+
+    [Parameter(Mandatory = $false)]
+    [string]$InputPath,
+
+    [Parameter(Mandatory = $false)]
+    [string]$OutputPath,
+
+    [Parameter(Mandatory = $false)]
+    [string]$Password,
+
+    [Parameter(Mandatory = $false)]
+    [string]$KeyFile,
+
+    [Parameter(Mandatory = $false)]
+    [int]$Iterations = 100000
+)
+
+Add-Type -AssemblyName System.Security
+
+function New-AesInstance {
+    param([byte[]]$Key, [byte[]]$IV)
+    $aes = [System.Security.Cryptography.Aes]::Create()
+    $aes.KeySize = 256
+    $aes.BlockSize = 128
+    $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+    $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+    $aes.Key = $Key
+    $aes.IV  = $IV
+    return $aes
+}
+
+function Derive-KeyAndIV {
+    param([string]$Password, [byte[]]$Salt, [int]$Iterations = 100000)
+    $passwordBytes = [System.Text.Encoding]::UTF8.GetBytes($Password)
+    $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($passwordBytes, $Salt, $Iterations)
+    return @{ Key = $pbkdf2.GetBytes(32); IV = $pbkdf2.GetBytes(16) }
+}
+
+if ($Mode -eq 'encrypt') {
+    $salt = New-Object byte[] 16
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($salt)
+    $derived = Derive-KeyAndIV -Password $Password -Salt $salt -Iterations $Iterations
+    $aes = New-AesInstance -Key $derived.Key -IV $derived.IV
+    $plain = [System.IO.File]::ReadAllBytes($InputPath)
+    $cipher = $aes.CreateEncryptor().TransformFinalBlock($plain, 0, $plain.Length)
+    $out = New-Object byte[] ($salt.Length + $cipher.Length)
+    [System.Array]::Copy($salt, 0, $out, 0, $salt.Length)
+    [System.Array]::Copy($cipher, 0, $out, $salt.Length, $cipher.Length)
+    [System.IO.File]::WriteAllBytes($OutputPath, $out)
+    Write-Host " [OK] Cifrado exitoso: $OutputPath" -ForegroundColor Green
+}
+elseif ($Mode -eq 'decrypt') {
+    $data = [System.IO.File]::ReadAllBytes($InputPath)
+    $salt = New-Object byte[] 16
+    [System.Array]::Copy($data, 0, $salt, 0, 16)
+    $cipher = New-Object byte[] ($data.Length - 16)
+    [System.Array]::Copy($data, 16, $cipher, 0, $cipher.Length)
+    $derived = Derive-KeyAndIV -Password $Password -Salt $salt -Iterations $Iterations
+    $aes = New-AesInstance -Key $derived.Key -IV $derived.IV
+    $plain = $aes.CreateDecryptor().TransformFinalBlock($cipher, 0, $cipher.Length)
+    [System.IO.File]::WriteAllBytes($OutputPath, $plain)
+    Write-Host " [OK] Descifrado exitoso: $OutputPath" -ForegroundColor Green
+}`
+  },
+  {
+    path: 'CryptoCore/cli/crypt.ps1',
+    category: 'modules',
+    description: 'CLI de cifrado y descifrado para CryptoCore: Soporta archivos individuales y directorios recursivos (-Recursive).',
+    language: 'powershell',
+    content: `<#
+.SYNOPSIS
+    crypt.ps1 - CLI Command Line Interface for CryptoCore Engine
+#>
+param(
+    [Parameter(Mandatory = $true, Position = 0)]
+    [ValidateSet('encrypt', 'decrypt', 'benchmark', 'genkey')]
+    [string]$Mode,
+
+    [Parameter(Mandatory = $false, Position = 1)]
+    [string]$InputPath,
+
+    [Parameter(Mandatory = $false, Position = 2)]
+    [string]$OutputPath,
+
+    [Parameter(Mandatory = $false)]
+    [string]$Password,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$Recursive
+)
+
+$enginePath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "..\\core\\CryptoEngine.ps1"
+& $enginePath -Mode $Mode -InputPath $InputPath -OutputPath $OutputPath -Password $Password`
+  },
+  {
+    path: 'CryptoCore/config/crypto.config.json',
+    category: 'config',
+    description: 'Configuración técnica y políticas del motor criptográfico soberano AES-256.',
+    language: 'json',
+    content: `{
+  "module": "CryptoCore",
+  "version": "1.0.0",
+  "cipher": {
+    "algorithm": "AES",
+    "keySizeBits": 256,
+    "cipherMode": "CBC",
+    "paddingMode": "PKCS7"
+  }
+}`
+  },
+  {
     path: 'SecuritySandbox-Engine.ps1',
     category: 'root',
     description: 'Motor de Seguridad Soberana y Sandbox para Windows 10 Pro: Desbloquea procesos críticos (cmd.exe, pwsh.exe), neutraliza Zonas de Seguridad corruptas, mitiga el modo restrictivo de SmartScreen/Explorer, purga marcas de descarga (Zone.Identifier) y restaura permisos ACL NTFS.',
