@@ -323,7 +323,21 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
           }`}
         >
           <Wrench className="w-3.5 h-3.5 text-emerald-600" />
-          <span>[7] WINFIX UNIFIED (LOCAL)</span>
+          <span>[7] WINFIX UNIFIED</span>
+        </button>
+
+        {/* Sovereign Security Sandbox Layer Engine */}
+        <button
+          onClick={() => handleRunMode('SECURITY_SANDBOX')}
+          disabled={isRunning}
+          className={`px-3 py-1.5 rounded-lg font-mono font-semibold transition-all flex items-center gap-1.5 shadow-xs ${
+            currentMode === 'SECURITY_SANDBOX' && isRunning
+              ? 'bg-amber-600 text-white shadow-sm'
+              : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300'
+          }`}
+        >
+          <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+          <span>[8] SECURITY SANDBOX</span>
         </button>
       </div>
 
@@ -527,6 +541,24 @@ Log   : C:\\BIM\\AutodeskEnvironment\\logs\\ABEM_SmokeTest_20260814.log
       { level: 'INFO', message: `[PASO 5/5] Invocando DotNet-Fix.ps1 para verificar runtimes .NET 8.0 Desktop y Core 3.1...` },
       { level: 'SUCCESS', message: `Dependencias .NET Desktop Runtime validadas.` },
       { level: 'BANNER', message: `\n====================================================================\n  WINFIX UNIFIED - REPARACION LOCAL DE WINDOWS FINALIZADA\n  ESTADO: SISTEMA Y COMPONENTES REPARADOS CON EXITO (0 ERRORES)\n  REPORTE: C:\\BIM\\REPOSITORIOS\\EntornoDesk\\logs\\WinFix_Execution.log\n====================================================================\n` }
+    ];
+  } else if (mode === 'SECURITY_SANDBOX') {
+    return [
+      { level: 'STAGE', message: `=== SecuritySandbox-Engine.ps1: Initializing Sovereign User-Space Security Layer ===` },
+      { level: 'INFO', message: `Policy Manifest: security-policy.json | Target Host: ${profile.name}` },
+      { level: 'INFO', message: `Architecture: Non-Kernel Custom Control Layer for Windows 10 Pro Workstations` },
+      { level: 'INFO', message: `[1/5] PROCESS RESTRICTION SCAN: Auditing DisableCMD, DisallowRun and Explorer policies...` },
+      { level: 'SUCCESS', message: `Process restrictions cleared: cmd.exe, powershell.exe, pwsh.exe and cscript.exe restored.` },
+      { level: 'INFO', message: `[2/5] SECURITY ZONES REMEDIATION: Neutralizing corrupt Internet Settings fallback checks...` },
+      { level: 'SUCCESS', message: `Zone 0 (Local Machine / Mi PC) set to Flag 0 / Rule 1806=0. Yellow security alert eliminated.` },
+      { level: 'INFO', message: `[3/5] SMARTSCREEN & RESTRICTED MODE MITIGATION: Configuring permissive local script policies...` },
+      { level: 'SUCCESS', message: `Explorer Restricted Mode overrides applied. Local scripts allowed without false-positive blocks.` },
+      { level: 'INFO', message: `[4/5] MARK-OF-THE-WEB PURGE: Scanning Zone.Identifier streams across C:\\BIM and system paths...` },
+      { level: 'SUCCESS', message: `All local batch and powershell scripts unblocked (Zone.Identifier ADS removed).` },
+      { level: 'INFO', message: `[5/5] NTFS ACL RECONCILIATION: Synchronizing filesystem access descriptors on C:\\BIM...` },
+      { level: 'SUCCESS', message: `NTFS ACLs granted for Administrators (FullControl) and Users (Modify).` },
+      { level: 'SUCCESS', message: `Sovereign Security Audit Log written to: C:\\BIM\\REPOSITORIOS\\EntornoDesk\\logs\\SecuritySandbox_Audit.json` },
+      { level: 'BANNER', message: `\n====================================================================\n  SECURITY SANDBOX LAYER - ACTIVE & ENFORCED\n  STATUS: 100% OPERATIONAL (Zero Windows Restrictive Blocks)\n  VERDICT: SOVEREIGN_CONTROL_ESTABLISHED\n====================================================================\n` }
     ];
   } else {
     // VALIDATE

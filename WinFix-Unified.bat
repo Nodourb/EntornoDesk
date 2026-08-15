@@ -53,17 +53,21 @@ echo.
 echo   [5] Instalar y Reparar Runtimes .NET (8.0 Desktop, Core 3.1)
 echo       - Instalar dependencias para Revit y Plugins BIM
 echo.
-echo   [6] Salir
+echo   [6] Activar Security Sandbox Layer (Desbloqueo de CMD, SmartScreen y NTFS)
+echo       - Ejecutar SecuritySandbox-Engine.ps1 con politicas soberanas
+echo.
+echo   [7] Salir
 echo ============================================================================
 echo.
-set /p "CHOICE= Seleccione una opcion (1-6) y presione ENTER: "
+set /p "CHOICE= Seleccione una opcion (1-7) y presione ENTER: "
 
 if "%CHOICE%"=="1" goto OP_FULL
 if "%CHOICE%"=="2" goto OP_WU
 if "%CHOICE%"=="3" goto OP_SEC
 if "%CHOICE%"=="4" goto OP_DRV
 if "%CHOICE%"=="5" goto OP_DOTNET
-if "%CHOICE%"=="6" goto OP_EXIT
+if "%CHOICE%"=="6" goto OP_SANDBOX
+if "%CHOICE%"=="7" goto OP_EXIT
 goto MENU
 
 :OP_FULL
@@ -101,6 +105,13 @@ goto MENU
 echo.
 echo [INFO] Ejecutando Instalacion de Runtimes .NET...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINFIX_ROOT%\DotNet-Fix.ps1"
+pause
+goto MENU
+
+:OP_SANDBOX
+echo.
+echo [INFO] Ejecutando Security Sandbox Engine (Remediacion Soberana)...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINFIX_ROOT%\SecuritySandbox-Engine.ps1" -Action RemediateAll
 pause
 goto MENU
 

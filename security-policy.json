@@ -1,0 +1,51 @@
+{
+  "name": "Sovereign Security Sandbox Policy",
+  "version": "2.0.0",
+  "mode": "EnforceSovereignControl",
+  "lastUpdated": "2026-08-15T08:50:00Z",
+  "trustZones": {
+    "zone0_SystemCore": {
+      "description": "Proteccion de binarios y directivas centrales del sistema operativo",
+      "allowedPaths": ["C:\\Windows\\System32", "C:\\Windows\\SysWOW64", "C:\\Program Files"],
+      "executionPolicy": "AllowSignedOnly",
+      "requireAuthenticode": true
+    },
+    "zone1_LocalWorkstation": {
+      "description": "Repositorios de automatizacion, scripts BIM y utilitarios locales de trabajo",
+      "allowedPaths": ["C:\\BIM", "C:\\BIM\\REPOSITORIOS\\EntornoDesk", "D:\\BIM_Projects"],
+      "executionPolicy": "AllowBypassLocal",
+      "autoUnblockZoneIdentifier": true,
+      "suppressSmartScreenWarnings": true
+    },
+    "zone2_IntranetEnterprise": {
+      "description": "Recursos compartidos y servidores de licencias e infraestructura interna",
+      "allowedPaths": ["\\\\*\\BIM_Share", "\\\\*\\Autodesk_Deploy"],
+      "executionPolicy": "AllowWithAuditing"
+    },
+    "zone3_InternetUntrusted": {
+      "description": "Archivos y descargas procedentes de fuentes externas o no verificadas",
+      "executionPolicy": "QuarantineBeforeExecution",
+      "mandatorySha256Check": true
+    }
+  },
+  "executionGatekeeper": {
+    "unblockCriticalProcesses": ["cmd.exe", "powershell.exe", "pwsh.exe", "cscript.exe", "wscript.exe"],
+    "suppressExplorerRestrictedMode": true,
+    "disableCmdRegistryOverrides": true,
+    "allowedExtensions": [".bat", ".cmd", ".ps1", ".vbs", ".reg", ".exe", ".dll"]
+  },
+  "integrityWatchdog": {
+    "monitorRegistryKeys": [
+      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+      "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "HKCU\\Software\\Policies\\Microsoft\\Windows\\System"
+    ],
+    "autoRemediateTampering": true,
+    "periodicHealthCheckMinutes": 15
+  },
+  "securityLogger": {
+    "outputDirectory": "C:\\BIM\\REPOSITORIOS\\EntornoDesk\\logs",
+    "enableJsonTelemetry": true,
+    "maxRetentionDays": 30
+  }
+}

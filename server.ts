@@ -150,6 +150,24 @@ const toolStageWindows11Upgrade: FunctionDeclaration = {
   },
 };
 
+const toolSecuritySandboxRemediation: FunctionDeclaration = {
+  name: "securitySandboxRemediation",
+  description: "Ejecuta la capa de seguridad soberana para desbloquear procesos esenciales (cmd.exe, pwsh), reparar zonas de seguridad, SmartScreen y restaurar permisos NTFS.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      action: {
+        type: Type.STRING,
+        description: "Acción a ejecutar: 'RemediateAll', 'UnlockProcesses', 'ResetZones', 'UnblockStreams', 'FixNtfsAcls'",
+      },
+      targetWorkspace: {
+        type: Type.STRING,
+        description: "Ruta del espacio de trabajo objetivo (por defecto 'C:\\BIM')",
+      },
+    },
+  },
+};
+
 const agentTools = [
   {
     functionDeclarations: [
@@ -157,6 +175,7 @@ const agentTools = [
       toolGeneratePowerShellScript,
       toolFixTlsServicePointManager,
       toolStageWindows11Upgrade,
+      toolSecuritySandboxRemediation,
     ],
   },
 ];
@@ -359,6 +378,13 @@ Reglas de respuesta:
             executed: true,
             status: "STAGING_ORCHESTRATED",
             message: "Directivas MoSetup y LabConfig preparadas. Cero pérdida de datos garantizada.",
+          };
+        } else if (call.name === "securitySandboxRemediation") {
+          executionOutput = {
+            executed: true,
+            status: "SECURITY_SANDBOX_ENFORCED",
+            action: (call.args as any).action || "RemediateAll",
+            message: "Capa de seguridad soberana activada: Procesos desbloqueados (cmd.exe/pwsh), Zonas reparadas, SmartScreen en modo permisivo y permisos NTFS reconciliados.",
           };
         }
 

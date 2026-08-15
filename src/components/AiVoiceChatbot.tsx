@@ -62,6 +62,7 @@ export function AiVoiceChatbot({
       text: `Hola, soy tu **BIM DevOps Orchestrator**. Estoy conectado al kernel de automatización de **Autodesk BIM Environment Manager (ABEM)**.\n\nPuedo ayudarte con reconocimiento de voz, generación de scripts PowerShell, diagnósticos de errores de registro (TLS / ServicePointManager) y orquestación para Revit ${targetRevitVersion}.\n\n¿Qué tarea o diagnóstico deseas automatizar hoy?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       suggestedActions: [
+        { label: 'Activar Security Sandbox (Desbloquear cmd/zonas)', actionType: 'RUN_CONSOLE', payload: 'SecuritySandbox-Engine' },
         { label: 'Diagnosticar Fallo ServicePointManager', actionType: 'RUN_CONSOLE', payload: 'Fix-NetSecurityPointManager' },
         { label: 'Preparar Upgrade Windows 11', actionType: 'RUN_CONSOLE', payload: 'Prepare-WindowsUpdate' },
         { label: 'Optimizar Revit.ini 2026', actionType: 'OPEN_TAB', payload: 'configurator' }
