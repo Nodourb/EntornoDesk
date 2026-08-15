@@ -1,6 +1,6 @@
 {
   "name": "Autodesk BIM Environment Manager",
   "description": "Diagnostic, stabilization, and automated configuration ecosystem for Autodesk Revit & AutoCAD workstations with PowerShell bootstrapper generator.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

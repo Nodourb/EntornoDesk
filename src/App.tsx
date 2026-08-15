@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import confetti from 'canvas-confetti';
+import { Sparkles, Mic, MessageSquare, X } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { ScoreBanner } from './components/ScoreBanner';
 import { SystemScanner } from './components/SystemScanner';
@@ -8,6 +9,8 @@ import { ExecutionConsole } from './components/ExecutionConsole';
 import { ScriptRepositoryExplorer } from './components/ScriptRepositoryExplorer';
 import { BimConfigurator } from './components/BimConfigurator';
 import { TroubleshooterModal } from './components/TroubleshooterModal';
+import { AiOperationsHub } from './components/AiOperationsHub';
+import { AiVoiceChatbot } from './components/AiVoiceChatbot';
 import { SYSTEM_PRESETS } from './data/presets';
 import { SystemProfile, ExecutionMode } from './types';
 import { calculateReadinessScore } from './utils/scoring';
@@ -17,8 +20,9 @@ export default function App() {
   const [currentProfile, setCurrentProfile] = useState<SystemProfile>(SYSTEM_PRESETS[0]);
   const [targetRevitVersion, setTargetRevitVersion] = useState<string>('2026');
   const [targetAutoCADVersion, setTargetAutoCADVersion] = useState<string>('2026');
-  const [activeTab, setActiveTab] = useState<'scanner' | 'matrix' | 'console' | 'repository' | 'configurator'>('scanner');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'matrix' | 'console' | 'repository' | 'configurator' | 'ai_assistant'>('ai_assistant');
   const [isTroubleshooterOpen, setIsTroubleshooterOpen] = useState<boolean>(false);
+  const [isFloatingVoiceOpen, setIsFloatingVoiceOpen] = useState<boolean>(false);
 
   // Dynamic audit items for the current active profile
   const [profileItems, setProfileItems] = useState(currentProfile.items);
@@ -173,6 +177,15 @@ export default function App() {
           onExportJson={handleExportJson}
         />
 
+        {/* Tab 0: AI Voice Chatbot & Assisted Operations Hub */}
+        {activeTab === 'ai_assistant' && (
+          <AiOperationsHub
+            currentProfile={currentProfile}
+            targetRevitVersion={targetRevitVersion}
+            onNavigateToTab={(tab) => setActiveTab(tab)}
+          />
+        )}
+
         {/* Tab 1: Workstation Audit & Health */}
         {activeTab === 'scanner' && (
           <SystemScanner
@@ -214,6 +227,38 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Floating AI Voice Chatbot Toggle Widget */}
+      {activeTab !== 'ai_assistant' && (
+        <>
+          {isFloatingVoiceOpen ? (
+            <AiVoiceChatbot
+              currentProfile={currentProfile}
+              targetRevitVersion={targetRevitVersion}
+              onNavigateToTab={(tab) => {
+                setActiveTab(tab);
+                setIsFloatingVoiceOpen(false);
+              }}
+              isFloating={true}
+              onCloseFloating={() => setIsFloatingVoiceOpen(false)}
+            />
+          ) : (
+            <button
+              onClick={() => setIsFloatingVoiceOpen(true)}
+              className="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white p-3.5 rounded-full shadow-xl flex items-center gap-2.5 ring-4 ring-blue-500/20 hover:scale-105 transition-all duration-200"
+              title="Abrir Asistente de Voz y Agentes de IA"
+            >
+              <div className="relative">
+                <Sparkles className="w-5 h-5 animate-pulse" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-white"></span>
+              </div>
+              <span className="text-xs font-bold font-mono tracking-wide hidden sm:inline">
+                VOICE AI AGENT
+              </span>
+            </button>
+          )}
+        </>
+      )}
 
       {/* Professional Polish Footer */}
       <footer className="bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 py-3 mt-12">

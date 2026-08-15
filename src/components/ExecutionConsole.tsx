@@ -309,7 +309,21 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
           }`}
         >
           <FileCode2 className="w-3.5 h-3.5 text-blue-600" />
-          <span>[6] WIN11 PREP PIPELINE</span>
+          <span>[6] WIN11 PREP</span>
+        </button>
+
+        {/* WinFix Unified Local Remediation Backend */}
+        <button
+          onClick={() => handleRunMode('WINFIX_UNIFIED')}
+          disabled={isRunning}
+          className={`px-3 py-1.5 rounded-lg font-mono font-semibold transition-all flex items-center gap-1.5 shadow-xs ${
+            currentMode === 'WINFIX_UNIFIED' && isRunning
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300'
+          }`}
+        >
+          <Wrench className="w-3.5 h-3.5 text-emerald-600" />
+          <span>[7] WINFIX UNIFIED (LOCAL)</span>
         </button>
       </div>
 
@@ -494,6 +508,25 @@ Log   : C:\\BIM\\AutodeskEnvironment\\logs\\ABEM_SmokeTest_20260814.log
       { level: 'SUCCESS', message: `WinSxS Component Store healthy. Windows Update Service (wuauserv) verified.` },
       { level: 'SUCCESS', message: `Consolidated JSON Telemetry written to: .\\reports\\ABEM_WinUpdatePrep_20260814.json` },
       { level: 'BANNER', message: `\n====================================================================\n  ABEM / AKS WORKSPACE - PREPARATION PIPELINE COMPLETED\n  VERDICT: READY_FOR_INPLACE_UPGRADE (Zero Data Loss Guaranteed)\n====================================================================\n` }
+    ];
+  } else if (mode === 'WINFIX_UNIFIED') {
+    return [
+      { level: 'STAGE', message: `=== WinFix-Backend.ps1: Initializing Local Technical Windows Remediation Engine ===` },
+      { level: 'INFO', message: `Execution Mode: FullRepair | Host: ${profile.name} (${profile.osName})` },
+      { level: 'INFO', message: `Local Architecture: 100% Local Execution (Zero External Cloud Model Dependencies)` },
+      { level: 'INFO', message: `[PASO 1/5] Deteniendo servicios wuauserv, bits, cryptsvc y purgando colas de Windows Update...` },
+      { level: 'SUCCESS', message: `SoftwareDistribution\\Download purgado y catroot2 reinicializado con exito.` },
+      { level: 'INFO', message: `[PASO 2/5] Ejecutando DISM /Online /Cleanup-Image /RestoreHealth en almacen WinSxS...` },
+      { level: 'SUCCESS', message: `DISM RestoreHealth completado con codigo 0 (Almacen de componentes reparado).` },
+      { level: 'INFO', message: `Ejecutando SFC /scannow (System File Checker)...` },
+      { level: 'SUCCESS', message: `SFC verifico integridad de archivos protegidos del sistema.` },
+      { level: 'INFO', message: `[PASO 3/5] Corrigiendo Zonas de Seguridad 0/1 y desbloqueando archivos locales (DisableSecuritySettingsCheck=1)...` },
+      { level: 'SUCCESS', message: `Politica Security_HKLM_only=0 y Zona 0 (Mi PC) desbloqueada. Alertas amarillas neutralizadas.` },
+      { level: 'INFO', message: `[PASO 4/5] Depurando paquetes de controladores OEM antiguos y ejecutando pnputil /scan-devices...` },
+      { level: 'SUCCESS', message: `Re-escaneo de dispositivos hardware (Intel, Realtek, Samsung) ejecutado correctamente.` },
+      { level: 'INFO', message: `[PASO 5/5] Invocando DotNet-Fix.ps1 para verificar runtimes .NET 8.0 Desktop y Core 3.1...` },
+      { level: 'SUCCESS', message: `Dependencias .NET Desktop Runtime validadas.` },
+      { level: 'BANNER', message: `\n====================================================================\n  WINFIX UNIFIED - REPARACION LOCAL DE WINDOWS FINALIZADA\n  ESTADO: SISTEMA Y COMPONENTES REPARADOS CON EXITO (0 ERRORES)\n  REPORTE: C:\\BIM\\REPOSITORIOS\\EntornoDesk\\logs\\WinFix_Execution.log\n====================================================================\n` }
     ];
   } else {
     // VALIDATE

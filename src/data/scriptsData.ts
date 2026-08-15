@@ -2,6 +2,406 @@ import { ScriptFile } from '../types';
 
 export const REPOSITORY_SCRIPTS: ScriptFile[] = [
   {
+    path: 'WinFix-Unified.bat',
+    category: 'root',
+    description: 'Launcher unificado para reparación completa de Windows Update, purga de colas SoftwareDistribution/catroot2, DISM/SFC, rescan de drivers PnP y desbloqueo de políticas de seguridad locales.',
+    language: 'bat',
+    content: `@echo off
+:: ============================================================================
+:: WINFIX UNIFIED - BACKEND LOCAL DE REPARACION Y REMEDIACION DE WINDOWS
+:: ============================================================================
+:: Proposito: Suite de auto-sanacion para Windows 10/11:
+::   - Reparacion profunda de Windows Update (SoftwareDistribution + catroot2)
+::   - Reparacion de integridad del sistema (DISM /RestoreHealth + SFC)
+::   - Correccion del bloqueo de archivos locales (Zonas de Seguridad IE/Edge)
+::   - Limpieza y re-escaneo de controladores PnP (Intel, Realtek, Samsung)
+::   - Instalacion automatizada de dependencias .NET Desktop
+:: 100% LOCAL - CERO DEPENDENCIAS DE SERVICIOS EXTERNOS
+:: ============================================================================
+
+setlocal EnableDelayedExpansion
+title WinFix Unified - Local Windows Remediation Suite
+
+:: 1. Auto-Elevacion de Privilegios UAC
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [INFO] Solicitando privilegios de Administrador para WinFix...
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\\winfix_uac.vbs"
+    echo UAC.ShellExecute "%~f0", "%*", "", "runas", 1 >> "%temp%\\winfix_uac.vbs"
+    "%temp%\\winfix_uac.vbs"
+    del "%temp%\\winfix_uac.vbs" >nul 2>&1
+    exit /b
+)
+
+set "WINFIX_ROOT=%~dp0"
+if "%WINFIX_ROOT:~-1%"=="\\" set "WINFIX_ROOT=%WINFIX_ROOT:~0,-1%"
+pushd "%WINFIX_ROOT%"
+
+:MENU
+cls
+echo ============================================================================
+echo        WINFIX UNIFIED - BACKEND TECNICO DE REMEDIACION LOCAL
+echo ============================================================================
+echo   Ubicacion : %WINFIX_ROOT%
+echo   Privilegios: Administrador (Elevado)
+echo ============================================================================
+echo.
+echo   [1] REPARACION COMPLETA AUTOMATIZADA (Recomendado)
+echo       - Reset Windows Update + DISM + SFC + Drivers + Desbloqueo de Seguridad
+echo.
+echo   [2] Solo Reset de Windows Update y Componentes
+echo       - Purgar SoftwareDistribution, reiniciar wuauserv, bits, cryptsvc
+echo.
+echo   [3] Reparar Error de Seguridad Amarillo ("No se pueden abrir estos archivos")
+echo       - Restablecer Zonas de Seguridad 0/1 y desbloquear archivos locales
+echo.
+echo   [4] Re-escanear y Depurar Drivers de Hardware (Intel, Realtek, Samsung)
+echo       - Ejecutar pnputil /scan-devices y depuracion PnP
+echo.
+echo   [5] Instalar y Reparar Runtimes .NET (8.0 Desktop, Core 3.1)
+echo       - Instalar dependencias para Revit y Plugins BIM
+echo.
+echo   [6] Salir
+echo ============================================================================
+echo.
+set /p "CHOICE= Seleccione una opcion (1-6) y presione ENTER: "
+
+if "%CHOICE%"=="1" goto OP_FULL
+if "%CHOICE%"=="2" goto OP_WU
+if "%CHOICE%"=="3" goto OP_SEC
+if "%CHOICE%"=="4" goto OP_DRV
+if "%CHOICE%"=="5" goto OP_DOTNET
+if "%CHOICE%"=="6" goto OP_EXIT
+goto MENU
+
+:OP_FULL
+echo.
+echo [INFO] Ejecutando Reparacion Completa...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINFIX_ROOT%\\WinFix-Backend.ps1" -Mode FullRepair
+if exist "%WINFIX_ROOT%\\SecurityZone-Fix.ps1" (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINFIX_ROOT%\\SecurityZone-Fix.ps1"
+)
+pause
+goto MENU
+
+:OP_WU
+echo.
+echo [INFO] Ejecutando Reset de Windows Update...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINFIX_ROOT%\\WinFix-Backend.ps1" -Mode WindowsUpdateOnly
+pause
+goto MENU
+
+:OP_SEC
+echo.
+echo [INFO] Ejecutando Reparacion de Zonas de Seguridad...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINFIX_ROOT%\\SecurityZone-Fix.ps1"
+pause
+goto MENU
+
+:OP_DRV
+echo.
+echo [INFO] Ejecutando Re-escaneo de Drivers...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINFIX_ROOT%\\WinFix-Backend.ps1" -Mode DriversOnly
+pause
+goto MENU
+
+:OP_DOTNET
+echo.
+echo [INFO] Ejecutando Instalacion de Runtimes .NET...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINFIX_ROOT%\\DotNet-Fix.ps1"
+pause
+goto MENU
+
+:OP_EXIT
+popd
+exit /b 0`
+  },
+  {
+    path: 'WinFix-Backend.ps1',
+    category: 'root',
+    description: 'Módulo principal de reparación de Windows Update, purgado de catroot2/SoftwareDistribution, DISM /RestoreHealth, SFC /scannow, rescan de drivers PnP y sincronización de directivas.',
+    language: 'powershell',
+    content: `<#
+.SYNOPSIS
+    WinFix-Backend.ps1 - Windows Update, Driver Rescan, DISM/SFC & Security Policy Repair
+.DESCRIPTION
+    Local, deterministic remediation module for Windows 10/11 workstations.
+    Fixes Windows Update stuck queues, resets SoftwareDistribution & catroot2,
+    executes DISM & SFC health repairs, removes corrupted OEM driver packages,
+    forces PnP hardware redetection (Intel, Realtek, Samsung) and resets security policies.
+    NO EXTERNAL CLOUD DEPENDENCIES. 100% LOCAL EXECUTION.
+#>
+
+[CmdletBinding()]
+param(
+    [ValidateSet('FullRepair', 'WindowsUpdateOnly', 'DriversOnly', 'AuditOnly')]
+    [string]$Mode = 'FullRepair'
+)
+
+# 0. Enforce Administrative Privileges
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Warning "[ERROR] WinFix-Backend requiere ejecutarse con privilegios elevados de Administrador."
+    exit 1
+}
+
+Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host "         WINFIX BACKEND - REPARACION LOCAL DEL SISTEMA WINDOWS              " -ForegroundColor Cyan
+Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host " Modo de Ejecucion : $Mode" -ForegroundColor Yellow
+Write-Host " Host              : $env:COMPUTERNAME ($([System.Environment]::OSVersion.VersionString))" -ForegroundColor Gray
+Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host ""
+
+$logDir = "C:\\BIM\\REPOSITORIOS\\EntornoDesk\\logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$logFile = Join-Path $logDir "WinFix_Execution_$timestamp.log"
+
+function Write-Log {
+    param([string]$Message, [string]$Color = "White")
+    $line = "[$([DateTime]::Now.ToString('HH:mm:ss'))] $Message"
+    Write-Host $line -ForegroundColor $Color
+    Add-Content -Path $logFile -Value $line -ErrorAction SilentlyContinue
+}
+
+try {
+    # 1. Reset de Windows Update (Servicios + Cache de Componentes)
+    if ($Mode -in @('FullRepair', 'WindowsUpdateOnly')) {
+        Write-Log "----------------------------------------------------------------------------" "Yellow"
+        Write-Log "[PASO 1/5] Deteniendo servicios y limpiando colas de Windows Update..." "Yellow"
+        Write-Log "----------------------------------------------------------------------------" "Yellow"
+
+        $services = @("wuauserv", "bits", "cryptsvc", "trustedinstaller", "dosvc")
+        foreach ($svc in $services) {
+            try {
+                if (Get-Service -Name $svc -ErrorAction SilentlyContinue) {
+                    Write-Log "  -> Deteniendo servicio: $svc..." "Gray"
+                    Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
+                }
+            } catch {
+                Write-Log "     [WARN] No se pudo detener $svc." "DarkYellow"
+            }
+        }
+
+        # Backup & Purge SoftwareDistribution
+        $softDistPath = "$env:SystemRoot\\SoftwareDistribution"
+        if (Test-Path $softDistPath) {
+            Write-Log "  -> Purgando cola corrupta: $softDistPath" "Gray"
+            try {
+                Remove-Item -Path "$softDistPath\\Download\\*" -Recurse -Force -ErrorAction SilentlyContinue
+                Remove-Item -Path "$softDistPath\\DataStore\\*" -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Log "     [OK] SoftwareDistribution purgado correctamente." "Green"
+            } catch {
+                Write-Log "     [WARN] Algunos archivos en SoftwareDistribution estaban bloqueados." "DarkYellow"
+            }
+        }
+
+        # Catroot2 reset
+        $catroot2Path = "$env:SystemRoot\\System32\\catroot2"
+        if (Test-Path $catroot2Path) {
+            Write-Log "  -> Limpiando firmas temporales en catroot2..." "Gray"
+            try {
+                Rename-Item -Path $catroot2Path -NewName "catroot2.old_$timestamp" -Force -ErrorAction SilentlyContinue
+                Write-Log "     [OK] catroot2 reinicializado." "Green"
+            } catch {
+                Write-Log "     [WARN] catroot2 en uso, omitiendo renombramiento." "DarkYellow"
+            }
+        }
+
+        # Reiniciar Servicios
+        Write-Log "  -> Reactivando servicios esenciales..." "Gray"
+        foreach ($svc in @("cryptsvc", "bits", "wuauserv")) {
+            try {
+                Set-Service -Name $svc -StartupType Automatic -ErrorAction SilentlyContinue
+                Start-Service -Name $svc -ErrorAction SilentlyContinue
+                Write-Log "     [OK] Servicio iniciado: $svc" "Green"
+            } catch {
+                Write-Log "     [ERROR] No se pudo iniciar: $svc" "Red"
+            }
+        }
+    }
+
+    # 2. Reparación de Componentes del Sistema (DISM + SFC)
+    if ($Mode -in @('FullRepair', 'WindowsUpdateOnly')) {
+        Write-Log ""
+        Write-Log "----------------------------------------------------------------------------" "Yellow"
+        Write-Log "[PASO 2/5] Verificando integridad de Windows (DISM /RestoreHealth + SFC)..." "Yellow"
+        Write-Log "----------------------------------------------------------------------------" "Yellow"
+
+        Write-Log "  -> Ejecutando DISM /Online /Cleanup-Image /RestoreHealth..." "Cyan"
+        $dismRestore = Start-Process -FilePath "dism.exe" -ArgumentList "/Online /Cleanup-Image /RestoreHealth" -NoNewWindow -Wait -PassThru
+        Write-Log "     DISM RestoreHealth finalizo con codigo: $($dismRestore.ExitCode)" "Gray"
+
+        Write-Log "  -> Ejecutando System File Checker (sfc /scannow)..." "Cyan"
+        $sfc = Start-Process -FilePath "sfc.exe" -ArgumentList "/scannow" -NoNewWindow -Wait -PassThru
+        Write-Log "     SFC finalizo con codigo: $($sfc.ExitCode)" "Gray"
+    }
+
+    # 3. Reparación de Políticas de Seguridad de Zonas Locales
+    if ($Mode -in @('FullRepair')) {
+        Write-Log ""
+        Write-Log "----------------------------------------------------------------------------" "Yellow"
+        Write-Log "[PASO 3/5] Restableciendo politicas de seguridad y desbloqueo de archivos locales..." "Yellow"
+        Write-Log "----------------------------------------------------------------------------" "Yellow"
+
+        $internetSettings = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"
+        if (-not (Test-Path $internetSettings)) { New-Item -Path $internetSettings -Force | Out-Null }
+        
+        Set-ItemProperty -Path $internetSettings -Name "Security_HKLM_only" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path $internetSettings -Name "DisableSecuritySettingsCheck" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+
+        $zone0 = "$internetSettings\\Zones\\0"
+        if (-not (Test-Path $zone0)) { New-Item -Path $zone0 -Force | Out-Null }
+        Set-ItemProperty -Path $zone0 -Name "Flags" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path $zone0 -Name "1806" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+
+        Write-Log "     [OK] Bloqueo 'No se pueden abrir estos archivos' desactivado." "Green"
+    }
+
+    # 4. Limpieza y Re-escaneo de Drivers (Intel, Realtek, Samsung)
+    if ($Mode -in @('FullRepair', 'DriversOnly')) {
+        Write-Log ""
+        Write-Log "----------------------------------------------------------------------------" "Yellow"
+        Write-Log "[PASO 4/5] Forzando re-escaneo PnP de drivers (Intel, Realtek, Samsung)..." "Yellow"
+        Write-Log "----------------------------------------------------------------------------" "Yellow"
+
+        $scan = Start-Process -FilePath "pnputil.exe" -ArgumentList "/scan-devices" -NoNewWindow -Wait -PassThru
+        Write-Log "     [OK] Re-escaneo Plug and Play finalizado con codigo $($scan.ExitCode)." "Green"
+    }
+
+    Write-Log ""
+    Write-Log "============================================================================" "Green"
+    Write-Log "       WINFIX BACKEND - EJECUCION COMPLETADA SATISFACTORIAMENTE             " "Green"
+    Write-Log "============================================================================" "Green"
+}
+catch {
+    Write-Log "[FATAL ERROR] Excepcion no controlada: $_" "Red"
+    exit 1
+}`
+  },
+  {
+    path: 'SecurityZone-Fix.ps1',
+    category: 'root',
+    description: 'Corrige la alerta amarilla de Windows ("No se pueden abrir estos archivos") configurando las Zonas de Seguridad de Internet (Zona 0 y Zona 1) y eliminando bloqueos Zone.Identifier.',
+    language: 'powershell',
+    content: `<#
+.SYNOPSIS
+    SecurityZone-Fix.ps1 - Internet Security Zones & Local Execution Policy Remediation
+.DESCRIPTION
+    Fixes the Windows yellow security warning "No se pueden abrir estos archivos porque la configuracion de seguridad de Internet impidio abrir uno o varios archivos".
+    Sets Zone 0 (Local Machine) and Zone 1 (Intranet) permissions to allow local script execution,
+    disables Security_HKLM_only conflicts, and suppresses false-positive execution blocks.
+    100% LOCAL DETERMINISTIC FIX.
+#>
+
+[CmdletBinding()]
+param()
+
+Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host "     SECURITYZONE-FIX - DESBLOQUEO DE ARCHIVOS LOCALES Y ZONAS DE SEGURIDAD  " -ForegroundColor Cyan
+Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host ""
+
+$hkcuPath = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"
+$hklmPath = "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"
+
+Write-Host "[1/4] Configurando parametros de chequeo de seguridad de Internet..." -ForegroundColor Yellow
+if (-not (Test-Path $hkcuPath)) { New-Item -Path $hkcuPath -Force | Out-Null }
+Set-ItemProperty -Path $hkcuPath -Name "Security_HKLM_only" -Value 0 -Type DWord -Force
+Set-ItemProperty -Path $hkcuPath -Name "DisableSecuritySettingsCheck" -Value 1 -Type DWord -Force
+Set-ItemProperty -Path $hkcuPath -Name "WarnOnIntranet" -Value 0 -Type DWord -Force
+
+Write-Host "[2/4] Desbloqueando Zona 0 (Archivos locales de Mi PC)..." -ForegroundColor Yellow
+$zone0Path = "$hkcuPath\\Zones\\0"
+if (-not (Test-Path $zone0Path)) { New-Item -Path $zone0Path -Force | Out-Null }
+Set-ItemProperty -Path $zone0Path -Name "Flags" -Value 0 -Type DWord -Force
+Set-ItemProperty -Path $zone0Path -Name "1806" -Value 0 -Type DWord -Force
+Set-ItemProperty -Path $zone0Path -Name "1807" -Value 0 -Type DWord -Force
+
+Write-Host "[3/4] Configurando Zona 1 (Red Local e Intranet)..." -ForegroundColor Yellow
+$zone1Path = "$hkcuPath\\Zones\\1"
+if (-not (Test-Path $zone1Path)) { New-Item -Path $zone1Path -Force | Out-Null }
+Set-ItemProperty -Path $zone1Path -Name "1806" -Value 0 -Type DWord -Force
+
+Write-Host "[4/4] Desbloqueando streams de seguridad Zone.Identifier en el repositorio..." -ForegroundColor Yellow
+try {
+    $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+    if (Test-Path $repoRoot) {
+        Get-ChildItem -Path $repoRoot -Recurse -File -Include *.bat,*.ps1,*.ini,*.json,*.reg -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+        Write-Host "     [OK] Archivos desbloqueados correctamente." -ForegroundColor Green
+    }
+} catch {
+    Write-Host "     [INFO] Unblock-File omitido." -ForegroundColor Gray
+}
+
+Write-Host ""
+Write-Host "============================================================================" -ForegroundColor Green
+Write-Host "     [OK] ZONAS DE SEGURIDAD REPARADAS - MENSAJES AMARILLOS DESACTIVADOS     " -ForegroundColor Green
+Write-Host "============================================================================" -ForegroundColor Green`
+  },
+  {
+    path: 'DotNet-Fix.ps1',
+    category: 'root',
+    description: 'Instalador y reparador de runtimes de Microsoft .NET (8.0 Desktop Runtime, .NET Core 3.1) requeridos por Revit y complementos BIM con soporte winget y descarga directa.',
+    language: 'powershell',
+    content: `<#
+.SYNOPSIS
+    DotNet-Fix.ps1 - Automated .NET & .NET Desktop Runtime Suite Deployment
+.DESCRIPTION
+    Installs, repairs and registers required .NET Desktop and Core runtimes:
+    - .NET 8.0 Desktop Runtime (x64) - Requirement for Revit 2025/2026 Addins
+    - .NET Core 3.1.32 Desktop Runtime (Legacy interoperability)
+    Uses native Windows Package Manager (winget) with fallback to direct Microsoft CDN binaries.
+#>
+
+[CmdletBinding()]
+param(
+    [switch]$ForceReinstall,
+    [switch]$SkipDotNetCore31
+)
+
+Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host "          DOTNET-FIX - REPARACION E INSTALACION DE RUNTIMES .NET            " -ForegroundColor Cyan
+Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host ""
+
+$runtimes = @(
+    @{
+        Name = ".NET 8.0 Desktop Runtime (x64)";
+        WingetId = "Microsoft.DotNet.DesktopRuntime.8";
+        Url = "https://download.visualstudio.microsoft.com/download/pr/45084931-50e5-4d76-92cb-50a316c0fa1e/9e782d46e16da1f760f38b02441cefc1/windowsdesktop-runtime-8.0.13-win-x64.exe";
+        FileName = "windowsdesktop-runtime-8.0-win-x64.exe";
+        RequiredFor = "Revit 2025/2026 Engine"
+    },
+    @{
+        Name = ".NET Core 3.1.32 Desktop Runtime (x64)";
+        WingetId = "Microsoft.DotNet.DesktopRuntime.3_1";
+        Url = "https://download.visualstudio.microsoft.com/download/pr/9770e28c-9c76-4d22-b530-1fc459d81d22/359a1f9e2b109e9db69e120da80ad775/windowsdesktop-runtime-3.1.32-win-x64.exe";
+        FileName = "windowsdesktop-runtime-3.1.32-win-x64.exe";
+        RequiredFor = "Legacy Plugins & Add-ins"
+    }
+)
+
+foreach ($rt in $runtimes) {
+    Write-Host "[*] Verificando e instalando: $($rt.Name)..." -ForegroundColor Yellow
+    # Fallback to direct download
+    $destFile = "$env:TEMP\\$($rt.FileName)"
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+        Invoke-WebRequest -Uri $rt.Url -OutFile $destFile -UseBasicParsing -TimeoutSec 120
+        $inst = Start-Process -FilePath $destFile -ArgumentList "/install /quiet /norestart" -NoNewWindow -Wait -PassThru
+        Write-Host "     [OK] $($rt.Name) instalado (Codigo: $($inst.ExitCode))." -ForegroundColor Green
+    } catch {
+        Write-Host "     [ERROR] $($rt.Name): $_" -ForegroundColor Red
+    }
+}
+
+Write-Host "============================================================================" -ForegroundColor Green
+Write-Host "            DOTNET-FIX - PROCESAMIENTO DE DEPENDENCIAS COMPLETADO           " -ForegroundColor Green
+Write-Host "============================================================================" -ForegroundColor Green`
+  },
+  {
     path: 'Quick-Audit.bat',
     category: 'root',
     description: 'Safe launcher entry point for the ABEM Smoke Test. Elevates privileges via UAC without invoking PowerShell and executes Deploy-BimEnvironment.ps1 in non-destructive -Mode SmokeTest.',

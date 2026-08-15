@@ -22,8 +22,9 @@ interface NavbarProps {
   onSelectTargetAutoCAD: (version: string) => void;
   onDownloadZip: () => void;
   onOpenTroubleshooter: () => void;
-  activeTab: 'scanner' | 'matrix' | 'console' | 'repository' | 'configurator';
-  onSelectTab: (tab: 'scanner' | 'matrix' | 'console' | 'repository' | 'configurator') => void;
+  onOpenVoiceAssistant?: () => void;
+  activeTab: 'scanner' | 'matrix' | 'console' | 'repository' | 'configurator' | 'ai_assistant';
+  onSelectTab: (tab: 'scanner' | 'matrix' | 'console' | 'repository' | 'configurator' | 'ai_assistant') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -35,6 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTargetAutoCAD,
   onDownloadZip,
   onOpenTroubleshooter,
+  onOpenVoiceAssistant,
   activeTab,
   onSelectTab
 }) => {
@@ -54,7 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between py-3 gap-3">
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-sm shadow-sm ring-1 ring-white/10">
+            <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded flex items-center justify-center text-white font-bold text-sm shadow-sm ring-1 ring-white/10">
               B
             </div>
             <div>
@@ -63,11 +65,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   BIM_ENV_MANAGER
                 </h1>
                 <span className="px-2 py-0.5 text-[10px] font-semibold font-mono rounded bg-slate-800 text-blue-300 border border-slate-700">
-                  v2.4-PRO
+                  v2.5-AI PRO
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">
-                Infrastructure Diagnostic & Deployment Suite
+                Infrastructure Diagnostic, Deployment & Voice AI Suite
               </p>
             </div>
           </div>
@@ -113,15 +115,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               </select>
             </div>
 
-            {/* Elevation Copy Command */}
+            {/* AI Voice Assistant Trigger */}
             <button
-              id="copy-elevation-btn"
-              onClick={handleCopyElevationCmd}
-              title="Copy Elevated PowerShell launcher command"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+              id="voice-assistant-top-btn"
+              onClick={() => onSelectTab('ai_assistant')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-xs transition-all ring-1 ring-white/20 animate-pulse"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-              <span>{copied ? 'Copied!' : 'Copy START'}</span>
+              <Sparkles className="w-3.5 h-3.5 text-blue-200" />
+              <span>Voice AI Hub</span>
             </button>
 
             {/* Troubleshooter Button */}
@@ -148,6 +149,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Navigation Tabs */}
         <div className="flex space-x-1 border-t border-slate-700/50 pt-1.5 pb-0 overflow-x-auto text-xs font-medium">
+          <button
+            id="tab-ai-assistant"
+            onClick={() => onSelectTab('ai_assistant')}
+            className={`py-2 px-3.5 rounded-t-md transition-colors whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'ai_assistant'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-sm'
+                : 'text-blue-300 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-blue-300" />
+            <span>Voice & AI Agents</span>
+          </button>
+
           <button
             id="tab-scanner"
             onClick={() => onSelectTab('scanner')}
@@ -196,7 +210,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
-            <Sparkles className="w-4 h-4" />
+            <Terminal className="w-4 h-4" />
             <span>Scripts & Manifests</span>
           </button>
 

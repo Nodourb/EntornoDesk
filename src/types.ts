@@ -1,4 +1,4 @@
-export type ExecutionMode = 'SMOKE_TEST' | 'AUDIT' | 'PLAN' | 'REPAIR' | 'DEPLOY' | 'VALIDATE' | 'WIN11_PREP';
+export type ExecutionMode = 'SMOKE_TEST' | 'AUDIT' | 'PLAN' | 'REPAIR' | 'DEPLOY' | 'VALIDATE' | 'WIN11_PREP' | 'WINFIX_UNIFIED';
 
 export type ComponentStatus = 'ok' | 'warning' | 'error' | 'missing' | 'unsupported';
 
@@ -61,3 +61,53 @@ export interface ReadinessScoreBreakdown {
   warningCount: number;
   passedCount: number;
 }
+
+export type AgentId = 'orchestrator' | 'diagnostics' | 'win11_upgrade' | 'script_generator' | 'workstation_optimizer';
+
+export interface AgentInfo {
+  id: AgentId;
+  name: string;
+  role: string;
+  icon: string;
+  color: string;
+  description: string;
+  samplePrompts: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'assistant' | 'system';
+  text: string;
+  timestamp: string;
+  agentId?: AgentId;
+  modelUsed?: string;
+  toolExecutions?: Array<{
+    toolName: string;
+    args: any;
+    output: any;
+  }>;
+  audioBase64?: string;
+  suggestedActions?: Array<{
+    label: string;
+    actionType: 'EXECUTE_COMMAND' | 'COPY_SCRIPT' | 'RUN_CONSOLE' | 'OPEN_TAB';
+    payload: string;
+  }>;
+}
+
+export interface AssistedPlanStep {
+  order: number;
+  title: string;
+  description?: string;
+  command: string;
+  isCritical?: boolean;
+  suggestedAction?: string;
+}
+
+export interface AssistedPlan {
+  planTitle: string;
+  operationCategory?: string;
+  targetArchitecture?: string;
+  estimatedTimeSeconds?: number;
+  steps: AssistedPlanStep[];
+}
+
