@@ -2,6 +2,70 @@ import { ScriptFile } from '../types';
 
 export const REPOSITORY_SCRIPTS: ScriptFile[] = [
   {
+    path: '.github/workflows/auto-branch-audit.yml',
+    category: 'config',
+    description: 'GitHub Action: Detección automática de carpetas subidas por push, creación de ramas aisladas modulo-{nombre} y auditoría IA con Gemini.',
+    language: 'yaml',
+    content: `name: "Auto-Branch Module Routing & AI Audit Engine"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'modules/**'
+      - 'CryptoCore/**'
+      - 'BIMParameters/**'
+      - 'AKSEngine/**'
+      - 'plugins/**'
+      - 'scripts/**'
+  workflow_dispatch:
+    inputs:
+      targetFolder:
+        description: 'Nombre de la carpeta o módulo específico a ramificar y auditar'
+        required: true
+        default: 'CryptoCore'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  route-and-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install google-genai pyyaml gitpython
+      - run: python .github/scripts/ai_branch_auditor.py`
+  },
+  {
+    path: '.github/workflows/prepare-pr.yml',
+    category: 'config',
+    description: 'GitHub Action: Generador interactivo de Pull Requests hacia main con el reporte de auditoría AI_AUDIT_REPORT.md como cuerpo.',
+    language: 'yaml',
+    content: `name: "Prepare Pull Request with AI Summary"
+
+on:
+  workflow_dispatch:
+    inputs:
+      sourceBranch:
+        required: true
+        default: 'modulo-CryptoCore'
+      targetBranch:
+        required: true
+        default: 'main'
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh pr create --base main --head modulo-CryptoCore --body-file AI_AUDIT_REPORT.md`
+  },
+  {
     path: 'CryptoCore/core/CryptoEngine.ps1',
     category: 'modules',
     description: 'Motor Criptográfico Soberano AES-256-CBC con derivación PBKDF2 (100,000 iteraciones) para protección de datos BIM/CAD.',
