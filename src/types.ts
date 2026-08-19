@@ -48,7 +48,7 @@ export interface ScriptFile {
   category: 'root' | 'modules' | 'config' | 'docs';
   description: string;
   content: string;
-  language: 'powershell' | 'bat' | 'json' | 'ini' | 'markdown';
+  language: 'powershell' | 'bat' | 'json' | 'ini' | 'markdown' | 'yaml' | 'xml';
 }
 
 export interface ReadinessScoreBreakdown {

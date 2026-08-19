@@ -11,6 +11,7 @@ import { BimConfigurator } from './components/BimConfigurator';
 import { TroubleshooterModal } from './components/TroubleshooterModal';
 import { AiOperationsHub } from './components/AiOperationsHub';
 import { AiVoiceChatbot } from './components/AiVoiceChatbot';
+import { GraphView } from './components/GraphView';
 import { SYSTEM_PRESETS } from './data/presets';
 import { SystemProfile, ExecutionMode } from './types';
 import { calculateReadinessScore } from './utils/scoring';
@@ -20,7 +21,7 @@ export default function App() {
   const [currentProfile, setCurrentProfile] = useState<SystemProfile>(SYSTEM_PRESETS[0]);
   const [targetRevitVersion, setTargetRevitVersion] = useState<string>('2026');
   const [targetAutoCADVersion, setTargetAutoCADVersion] = useState<string>('2026');
-  const [activeTab, setActiveTab] = useState<'scanner' | 'matrix' | 'console' | 'repository' | 'configurator' | 'ai_assistant'>('ai_assistant');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'matrix' | 'console' | 'repository' | 'configurator' | 'ai_assistant' | 'graph'>('ai_assistant');
   const [isTroubleshooterOpen, setIsTroubleshooterOpen] = useState<boolean>(false);
   const [isFloatingVoiceOpen, setIsFloatingVoiceOpen] = useState<boolean>(false);
 
@@ -225,6 +226,11 @@ export default function App() {
           <BimConfigurator
             targetRevitVersion={targetRevitVersion}
           />
+        )}
+
+        {/* Tab 6: Topología de Ramas (Graph / Obsidian Engine) */}
+        {activeTab === 'graph' && (
+          <GraphView />
         )}
       </main>
 

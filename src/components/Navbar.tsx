@@ -8,7 +8,8 @@ import {
   Wrench, 
   Sparkles,
   ShieldCheck,
-  Monitor
+  Monitor,
+  GitBranch
 } from 'lucide-react';
 import { SYSTEM_PRESETS } from '../data/presets';
 import { SystemProfile } from '../types';
@@ -23,8 +24,8 @@ interface NavbarProps {
   onDownloadZip: () => void;
   onOpenTroubleshooter: () => void;
   onOpenVoiceAssistant?: () => void;
-  activeTab: 'scanner' | 'matrix' | 'console' | 'repository' | 'configurator' | 'ai_assistant';
-  onSelectTab: (tab: 'scanner' | 'matrix' | 'console' | 'repository' | 'configurator' | 'ai_assistant') => void;
+  activeTab: 'scanner' | 'matrix' | 'console' | 'repository' | 'configurator' | 'ai_assistant' | 'graph';
+  onSelectTab: (tab: 'scanner' | 'matrix' | 'console' | 'repository' | 'configurator' | 'ai_assistant' | 'graph') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -225,6 +226,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Wrench className="w-4 h-4" />
             <span>BIM Configurator</span>
+          </button>
+
+          <button
+            id="tab-graph"
+            onClick={() => onSelectTab('graph')}
+            className={`py-2 px-3.5 rounded-t-md transition-colors whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'graph'
+                ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                : 'text-indigo-300 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <GitBranch className="w-4 h-4 text-indigo-400" />
+            <span>Topología de Ramas (Graph)</span>
           </button>
         </div>
       </div>
